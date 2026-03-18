@@ -1,0 +1,27 @@
+export interface Theme {
+  name: string;
+  primaryColor: string;
+  secondaryColor: string;
+  accentColor: string;
+  textColor: string;
+  bgColor: string;
+  navBg: string;
+  navText: string;
+  buttonBg: string;
+  buttonText: string;
+  cardBg: string;
+  borderColor: string;
+}
+
+export const THEMES: Record<string, Theme> = {
+  sunrise:  { name: "Sunrise",  primaryColor: "#F59E0B", secondaryColor: "#FEF3C7", accentColor: "#D97706", textColor: "#1F2937", bgColor: "#FFFBEB", navBg: "#F59E0B", navText: "#ffffff", buttonBg: "#F59E0B", buttonText: "#1F2937", cardBg: "#ffffff", borderColor: "#FDE68A" },
+  midnight: { name: "Midnight", primaryColor: "#6366F1", secondaryColor: "#EEF2FF", accentColor: "#4F46E5", textColor: "#1F2937", bgColor: "#F8FAFC", navBg: "#1E1B4B", navText: "#ffffff", buttonBg: "#6366F1", buttonText: "#ffffff", cardBg: "#ffffff", borderColor: "#E0E7FF" },
+  forest:   { name: "Forest",   primaryColor: "#10B981", secondaryColor: "#ECFDF5", accentColor: "#059669", textColor: "#1F2937", bgColor: "#F0FDF4", navBg: "#064E3B", navText: "#ffffff", buttonBg: "#10B981", buttonText: "#ffffff", cardBg: "#ffffff", borderColor: "#A7F3D0" },
+  ocean:    { name: "Ocean",    primaryColor: "#0EA5E9", secondaryColor: "#E0F2FE", accentColor: "#0284C7", textColor: "#1F2937", bgColor: "#F0F9FF", navBg: "#0C4A6E", navText: "#ffffff", buttonBg: "#0EA5E9", buttonText: "#ffffff", cardBg: "#ffffff", borderColor: "#BAE6FD" },
+  rose:     { name: "Rose",     primaryColor: "#F43F5E", secondaryColor: "#FFF1F2", accentColor: "#E11D48", textColor: "#1F2937", bgColor: "#FFF1F2", navBg: "#881337", navText: "#ffffff", buttonBg: "#F43F5E", buttonText: "#ffffff", cardBg: "#ffffff", borderColor: "#FECDD3" },
+  violet:   { name: "Violet",   primaryColor: "#8B5CF6", secondaryColor: "#EDE9FE", accentColor: "#7C3AED", textColor: "#1F2937", bgColor: "#F5F3FF", navBg: "#4C1D95", navText: "#ffffff", buttonBg: "#8B5CF6", buttonText: "#ffffff", cardBg: "#ffffff", borderColor: "#DDD6FE" },
+  coral:    { name: "Coral",    primaryColor: "#F97316", secondaryColor: "#FFF7ED", accentColor: "#EA580C", textColor: "#1F2937", bgColor: "#FFF7ED", navBg: "#7C2D12", navText: "#ffffff", buttonBg: "#F97316", buttonText: "#ffffff", cardBg: "#ffffff", borderColor: "#FED7AA" },
+  slate:    { name: "Slate",    primaryColor: "#475569", secondaryColor: "#F1F5F9", accentColor: "#334155", textColor: "#1F2937", bgColor: "#F8FAFC", navBg: "#0F172A", navText: "#ffffff", buttonBg: "#475569", buttonText: "#ffffff", cardBg: "#ffffff", borderColor: "#CBD5E1" },
+  candy:    { name: "Candy",    primaryColor: "#EC4899", secondaryColor: "#FDF2F8", accentColor: "#DB2777", textColor: "#1F2937", bgColor: "#FDF2F8", navBg: "#831843", navText: "#ffffff", buttonBg: "#EC4899", buttonText: "#ffffff", cardBg: "#ffffff", borderColor: "#FBCFE8" },
+  gold:     { name: "Gold",     primaryColor: "#EAB308", secondaryColor: "#FEFCE8", accentColor: "#CA8A04", textColor: "#1F2937", bgColor: "#FEFCE8", navBg: "#713F12", navText: "#ffffff", buttonBg: "#EAB308", buttonText: "#1F2937", cardBg: "#ffffff", borderColor: "#FEF08A" },
+};
