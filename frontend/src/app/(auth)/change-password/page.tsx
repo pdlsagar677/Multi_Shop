@@ -9,7 +9,8 @@ function ChangePasswordForm() {
   const searchParams = useSearchParams();
   const userId       = searchParams.get("userId");
 
-  const [form, setForm]             = useState({ newPassword: "", confirmPassword: "" });
+  const [form, setForm]             = useState({ oldPassword: "", newPassword: "", confirmPassword: "" });
+  const [showOld, setShowOld]       = useState(false);
   const [showNew, setShowNew]       = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -21,7 +22,7 @@ function ChangePasswordForm() {
     { label: "One number",               pass: /[0-9]/.test(form.newPassword) },
     { label: "Passwords match",          pass: form.newPassword === form.confirmPassword && form.confirmPassword !== "" },
   ];
-  const isValid = checks.every(c => c.pass);
+  const isValid = checks.every(c => c.pass) && form.oldPassword.trim() !== "";
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -31,6 +32,7 @@ function ChangePasswordForm() {
     try {
       await api.post("/auth/change-password", {
         userId,
+        oldPassword: form.oldPassword,
         newPassword: form.newPassword,
       });
       router.push("/login?passwordChanged=true");
@@ -70,6 +72,24 @@ function ChangePasswordForm() {
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">Temporary Password</label>
+            <div className="relative">
+              <Lock size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
+              <input
+                type={showOld ? "text" : "password"}
+                placeholder="Enter your temporary password"
+                value={form.oldPassword}
+                onChange={e => { setForm(p => ({ ...p, oldPassword: e.target.value })); setError(null); }}
+                className="w-full pl-11 pr-12 py-3.5 border-2 border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:border-yellow-400 bg-gray-50 focus:bg-white transition-colors"
+              />
+              <button type="button" onClick={() => setShowOld(!showOld)}
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                {showOld ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
+          </div>
+
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-2">New Password</label>
             <div className="relative">

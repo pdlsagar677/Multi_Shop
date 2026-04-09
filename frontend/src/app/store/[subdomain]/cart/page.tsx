@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import {
   ShoppingCart, Minus, Plus, Trash2, ChevronLeft,
   Package, ArrowRight, ShieldCheck, ImageIcon, Loader2,
+  AlertTriangle,
 } from "lucide-react";
 import { useStore } from "@/components/providers/StoreProvider";
 import { useAuthStore } from "@/store/authStore";
@@ -17,11 +18,13 @@ export default function CartPage() {
   const { store, themeColors: theme, loading: storeLoading } = useStore();
   const { user, isAuthenticated, isLoading: authLoading } = useAuthStore();
   const items = useCartStore((s) => s.items);
+  const loading = useCartStore((s) => s.loading);
+  const fetchCart = useCartStore((s) => s.fetchCart);
   const updateQuantity = useCartStore((s) => s.updateQuantity);
   const removeItem = useCartStore((s) => s.removeItem);
   const clearCart = useCartStore((s) => s.clearCart);
   const getSubtotal = useCartStore((s) => s.getSubtotal);
-  const getItemCount = useCartStore((s) => s.getItemCount);
+  const hasOutOfStockItems = useCartStore((s) => s.hasOutOfStockItems);
 
   const [confirmClear, setConfirmClear] = useState(false);
 
@@ -32,18 +35,30 @@ export default function CartPage() {
     }
   }, [authLoading, isAuthenticated, router]);
 
-  // Filter items for current store
-  const storeItems = store
-    ? items.filter((i) => i.vendorSubdomain === store.subdomain)
-    : [];
+  // Fetch cart from API
+  useEffect(() => {
+    if (isAuthenticated) {
+      fetchCart();
+    }
+  }, [isAuthenticated, fetchCart]);
 
-  const subtotal = storeItems.reduce((s, i) => s + i.price * i.quantity, 0);
+  const storeItems = items;
+
+  const subtotal = getSubtotal();
   const totalSaved = storeItems.reduce((s, i) => {
-    if (i.compareAtPrice && i.compareAtPrice > i.price) {
-      return s + (i.compareAtPrice - i.price) * i.quantity;
+    const product = i.productId;
+    if (!product) return s;
+    const effectivePrice = product.effectivePrice ?? product.price;
+    if (effectivePrice < product.price) {
+      return s + (product.price - effectivePrice) * i.quantity;
+    }
+    if (product.compareAtPrice && product.compareAtPrice > product.price) {
+      return s + (product.compareAtPrice - product.price) * i.quantity;
     }
     return s;
   }, 0);
+
+  const hasOOS = hasOutOfStockItems();
 
   if (storeLoading || authLoading) {
     return (
@@ -84,8 +99,12 @@ export default function CartPage() {
           </Link>
         </div>
 
-        {storeItems.length === 0 ? (
-          /* ── Empty cart ── */
+        {loading && storeItems.length === 0 ? (
+          <div className="flex items-center justify-center py-20">
+            <Loader2 size={32} className="animate-spin" style={{ color: theme.primaryColor }} />
+          </div>
+        ) : storeItems.length === 0 ? (
+          /* Empty cart */
           <div
             className="rounded-2xl p-16 text-center"
             style={{ backgroundColor: theme.cardBg, border: `1px solid ${theme.borderColor}` }}
@@ -105,15 +124,19 @@ export default function CartPage() {
           </div>
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            {/* ── Cart items ── */}
+            {/* Cart items */}
             <div className="lg:col-span-2 space-y-4">
               {storeItems.map((item) => (
                 <CartItemRow
                   key={item._id}
                   item={item}
                   theme={theme}
-                  onUpdateQty={(qty) => updateQuantity(item._id, qty)}
-                  onRemove={() => removeItem(item._id)}
+                  onUpdateQty={(qty) => {
+                    if (item.productId) updateQuantity(item.productId._id, qty);
+                  }}
+                  onRemove={() => {
+                    if (item.productId) removeItem(item.productId._id);
+                  }}
                 />
               ))}
 
@@ -124,7 +147,7 @@ export default function CartPage() {
                     <span className="text-sm text-gray-500">Clear all items?</span>
                     <button
                       onClick={() => {
-                        storeItems.forEach((i) => removeItem(i._id));
+                        clearCart();
                         setConfirmClear(false);
                       }}
                       className="text-sm font-bold text-red-500 hover:text-red-600"
@@ -149,7 +172,7 @@ export default function CartPage() {
               </div>
             </div>
 
-            {/* ── Order Summary ── */}
+            {/* Order Summary */}
             <div className="lg:col-span-1">
               <div
                 className="rounded-2xl p-6 sticky top-6"
@@ -165,14 +188,14 @@ export default function CartPage() {
                       Subtotal ({storeItems.reduce((s, i) => s + i.quantity, 0)} items)
                     </span>
                     <span className="font-semibold" style={{ color: theme.textColor }}>
-                      ${subtotal.toFixed(2)}
+                      Rs.{subtotal.toFixed(2)}
                     </span>
                   </div>
                   {totalSaved > 0 && (
                     <div className="flex justify-between text-sm">
                       <span className="text-green-600">You save</span>
                       <span className="font-semibold text-green-600">
-                        -${totalSaved.toFixed(2)}
+                        -Rs.{totalSaved.toFixed(2)}
                       </span>
                     </div>
                   )}
@@ -190,17 +213,34 @@ export default function CartPage() {
                     Total
                   </span>
                   <span className="text-2xl font-black" style={{ color: theme.textColor }}>
-                    ${subtotal.toFixed(2)}
+                    Rs.{subtotal.toFixed(2)}
                   </span>
                 </div>
 
-                <Link
-                  href="/checkout"
-                  className="w-full py-3.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all hover:opacity-90 hover:-translate-y-0.5"
-                  style={{ backgroundColor: theme.buttonBg, color: theme.buttonText }}
-                >
-                  Proceed to Checkout <ArrowRight size={16} />
-                </Link>
+                {hasOOS && (
+                  <div className="flex items-center gap-2 mb-4 p-3 rounded-xl bg-red-50 text-red-600">
+                    <AlertTriangle size={16} />
+                    <span className="text-xs font-semibold">Remove out-of-stock items to proceed</span>
+                  </div>
+                )}
+
+                {hasOOS ? (
+                  <button
+                    disabled
+                    className="w-full py-3.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 opacity-50 cursor-not-allowed"
+                    style={{ backgroundColor: theme.buttonBg, color: theme.buttonText }}
+                  >
+                    Proceed to Checkout <ArrowRight size={16} />
+                  </button>
+                ) : (
+                  <Link
+                    href="/checkout"
+                    className="w-full py-3.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all hover:opacity-90 hover:-translate-y-0.5"
+                    style={{ backgroundColor: theme.buttonBg, color: theme.buttonText }}
+                  >
+                    Proceed to Checkout <ArrowRight size={16} />
+                  </Link>
+                )}
 
                 <div className="flex items-center justify-center gap-2 mt-4 text-xs text-gray-400">
                   <ShieldCheck size={14} />
@@ -217,7 +257,7 @@ export default function CartPage() {
   );
 }
 
-/* ─── Cart Item Row ─── */
+/* Cart Item Row */
 
 interface CartItemRowProps {
   item: CartItem;
@@ -227,24 +267,29 @@ interface CartItemRowProps {
 }
 
 function CartItemRow({ item, theme, onUpdateQty, onRemove }: CartItemRowProps) {
-  const hasDiscount =
-    item.compareAtPrice && item.compareAtPrice > item.price;
+  const product = item.productId;
+  if (!product) return null;
+
+  const effectivePrice = product.effectivePrice ?? product.price;
+  const hasDiscount = effectivePrice < product.price || (product.compareAtPrice && product.compareAtPrice > product.price);
+  const isOutOfStock = product.stock <= 0;
+  const isLowStock = product.stock > 0 && product.stock < 10;
 
   return (
     <div
-      className="rounded-2xl p-4 sm:p-5 flex gap-4 sm:gap-5 transition-all"
-      style={{ backgroundColor: theme.cardBg, border: `1px solid ${theme.borderColor}` }}
+      className={`rounded-2xl p-4 sm:p-5 flex gap-4 sm:gap-5 transition-all relative ${isOutOfStock ? "opacity-60" : ""}`}
+      style={{ backgroundColor: theme.cardBg, border: `1px solid ${isOutOfStock ? "#fca5a5" : theme.borderColor}` }}
     >
       {/* Image */}
       <Link
-        href={`/product/${item._id}`}
-        className="w-24 h-24 sm:w-28 sm:h-28 rounded-xl overflow-hidden shrink-0"
+        href={`/product/${product._id}`}
+        className="w-24 h-24 sm:w-28 sm:h-28 rounded-xl overflow-hidden shrink-0 relative"
         style={{ backgroundColor: theme.secondaryColor }}
       >
-        {item.image ? (
+        {product.images && product.images[0] ? (
           <img
-            src={item.image}
-            alt={item.name}
+            src={product.images[0]}
+            alt={product.name}
             className="w-full h-full object-cover"
           />
         ) : (
@@ -252,26 +297,48 @@ function CartItemRow({ item, theme, onUpdateQty, onRemove }: CartItemRowProps) {
             <ImageIcon size={28} className="text-gray-300" />
           </div>
         )}
+        {isOutOfStock && (
+          <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+            <span className="text-white text-xs font-bold bg-red-500 px-2 py-1 rounded">Out of Stock</span>
+          </div>
+        )}
       </Link>
 
       {/* Details */}
       <div className="flex-1 min-w-0 flex flex-col">
         <Link
-          href={`/product/${item._id}`}
+          href={`/product/${product._id}`}
           className="font-bold text-sm sm:text-base hover:underline line-clamp-2"
           style={{ color: theme.textColor }}
         >
-          {item.name}
+          {product.name}
         </Link>
 
         <div className="flex items-baseline gap-2 mt-1">
           <span className="font-black text-base" style={{ color: theme.textColor }}>
-            ${item.price.toFixed(2)}
+            Rs.{effectivePrice.toFixed(2)}
           </span>
           {hasDiscount && (
             <span className="text-xs text-gray-400 line-through">
-              ${item.compareAtPrice!.toFixed(2)}
+              Rs.{(product.compareAtPrice && product.compareAtPrice > product.price ? product.compareAtPrice : product.price).toFixed(2)}
             </span>
+          )}
+        </div>
+
+        {/* Stock badges */}
+        <div className="mt-1">
+          {isOutOfStock && (
+            <span className="text-xs font-bold text-red-500 flex items-center gap-1">
+              <AlertTriangle size={12} /> Out of Stock
+            </span>
+          )}
+          {isLowStock && (
+            <span className="text-xs font-semibold text-amber-500">
+              Only {product.stock} left
+            </span>
+          )}
+          {!isOutOfStock && !isLowStock && (
+            <span className="text-xs text-green-500 font-medium">In Stock</span>
           )}
         </div>
 
@@ -283,7 +350,8 @@ function CartItemRow({ item, theme, onUpdateQty, onRemove }: CartItemRowProps) {
           >
             <button
               onClick={() => onUpdateQty(item.quantity - 1)}
-              className="w-9 h-9 flex items-center justify-center text-gray-500 hover:bg-gray-50 transition-colors"
+              disabled={isOutOfStock}
+              className="w-9 h-9 flex items-center justify-center text-gray-500 hover:bg-gray-50 transition-colors disabled:opacity-30"
             >
               <Minus size={14} />
             </button>
@@ -295,7 +363,7 @@ function CartItemRow({ item, theme, onUpdateQty, onRemove }: CartItemRowProps) {
             </span>
             <button
               onClick={() => onUpdateQty(item.quantity + 1)}
-              disabled={item.quantity >= item.stock}
+              disabled={item.quantity >= product.stock || isOutOfStock}
               className="w-9 h-9 flex items-center justify-center text-gray-500 hover:bg-gray-50 disabled:opacity-30 transition-colors"
             >
               <Plus size={14} />
@@ -304,7 +372,7 @@ function CartItemRow({ item, theme, onUpdateQty, onRemove }: CartItemRowProps) {
 
           <div className="flex items-center gap-4">
             <span className="text-sm font-black hidden sm:block" style={{ color: theme.textColor }}>
-              ${(item.price * item.quantity).toFixed(2)}
+              Rs.{(effectivePrice * item.quantity).toFixed(2)}
             </span>
             <button
               onClick={onRemove}

@@ -7,6 +7,9 @@ const {
   updateProduct,
   deleteProduct,
   toggleProductStatus,
+  toggleFeatured,
+  getLowStockProducts,
+  addStock,
 } = require("../controllers/product.controller");
 const { protect, restrictTo } = require("../middleware/auth.middleware");
 const upload = require("../middleware/upload.middleware");
@@ -30,10 +33,13 @@ const createProductValidation = [
 ];
 
 router.get("/",         getVendorProducts);
+router.get("/low-stock", getLowStockProducts);
 router.get("/:id",      getVendorProductById);
 router.post("/",        upload.array("images", 5), createProductValidation, validateRequest, createProduct);
-router.put("/:id",      upload.array("images", 5), updateProduct);
+router.put("/:id",      upload.array("images", 5), createProductValidation, validateRequest, updateProduct);
 router.delete("/:id",   deleteProduct);
 router.patch("/:id/toggle", toggleProductStatus);
+router.patch("/:id/feature", toggleFeatured);
+router.patch("/:id/stock", [body("quantity").isInt({ min: 1 }).withMessage("Quantity must be at least 1")], validateRequest, addStock);
 
 module.exports = router;

@@ -8,6 +8,8 @@ const {
   refreshAccessToken,
   logout,
   changePassword,
+  forgotPassword,
+  resetPassword,
   getMe,
   updateProfile,
   deleteAccount,
@@ -59,6 +61,7 @@ const otpValidation = [
 
 const changePasswordValidation = [
   body("userId").notEmpty().withMessage("User ID is required"),
+  body("oldPassword").notEmpty().withMessage("Current password is required"),
   body("newPassword")
     .notEmpty().withMessage("New password is required")
     .isLength({ min: 8 }).withMessage("Password must be at least 8 characters")
@@ -78,6 +81,19 @@ router.post("/login", loginValidation, validateRequest, login);
 router.post("/refresh", refreshAccessToken);
 router.post("/logout", logout);
 router.post("/change-password", changePasswordValidation, validateRequest, changePassword);
+
+router.post("/forgot-password", [
+  body("email").trim().isEmail().withMessage("Please enter a valid email"),
+], validateRequest, forgotPassword);
+
+router.post("/reset-password", [
+  body("token").notEmpty().withMessage("Reset token is required"),
+  body("newPassword")
+    .notEmpty().withMessage("New password is required")
+    .isLength({ min: 8 }).withMessage("Password must be at least 8 characters")
+    .matches(/[A-Z]/).withMessage("Password must contain at least one uppercase letter")
+    .matches(/[0-9]/).withMessage("Password must contain at least one number"),
+], validateRequest, resetPassword);
 
 // Private routes (requires valid access token)
 router.get("/me", protect, getMe);

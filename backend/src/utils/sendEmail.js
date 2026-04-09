@@ -68,7 +68,8 @@ const sendVerificationEmail = async ({ name, email, otp, vendor }) => {
   const info = await transporter.sendMail(mailOptions);
 
   if (process.env.NODE_ENV !== "production") {
-    console.log("📧 Email preview URL:", nodemailer.getTestMessageUrl(info));
+    const logger = require("./logger");
+    logger.info("Email preview URL: " + nodemailer.getTestMessageUrl(info));
   }
 };
 
@@ -112,11 +113,57 @@ const sendVendorWelcomeEmail = async ({ name, email, tempPassword, storeName, su
   const info = await transporter.sendMail(mailOptions);
 
   if (process.env.NODE_ENV !== "production") {
-    console.log("📧 Vendor email preview URL:", nodemailer.getTestMessageUrl(info));
+    const logger = require("./logger");
+    logger.info("Vendor email preview URL: " + nodemailer.getTestMessageUrl(info));
+  }
+};
+
+// ─────────────────────────────────────────
+// Send password reset email
+// ─────────────────────────────────────────
+const sendPasswordResetEmail = async ({ name, email, resetUrl, vendor }) => {
+  const transporter = await createTransporter();
+
+  const brandName = vendor?.storeName || "Multi-Tenant Shop";
+  const brandColor = vendor ? (THEMES[vendor.theme]?.primaryColor || "#4F46E5") : "#4F46E5";
+
+  const mailOptions = {
+    from: `"${brandName}" <no-reply@multishop.com>`,
+    to: email,
+    subject: `Reset Your Password — ${brandName}`,
+    html: `
+      <div style="font-family: Arial, sans-serif; max-width: 480px; margin: auto;">
+        <h2 style="color: #111;">Hi ${name},</h2>
+        <p>You requested a password reset${vendor ? ` for your ${brandName} account` : ""}.</p>
+        <p>Click the button below to set a new password:</p>
+        <div style="text-align: center; margin: 32px 0;">
+          <a href="${resetUrl}" style="
+            display: inline-block;
+            background: ${brandColor};
+            color: #fff;
+            padding: 14px 32px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: bold;
+            font-size: 16px;
+          ">Reset Password</a>
+        </div>
+        <p style="color: #6B7280;">This link expires in <strong>30 minutes</strong>.</p>
+        <p style="color: #6B7280;">If you didn't request this, ignore this email — your password will remain unchanged.</p>
+      </div>
+    `,
+  };
+
+  const info = await transporter.sendMail(mailOptions);
+
+  if (process.env.NODE_ENV !== "production") {
+    const logger = require("./logger");
+    logger.info("Password reset email preview URL: " + nodemailer.getTestMessageUrl(info));
   }
 };
 
 module.exports = {
   sendVerificationEmail,
   sendVendorWelcomeEmail,
+  sendPasswordResetEmail,
 };

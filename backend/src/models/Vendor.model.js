@@ -35,6 +35,12 @@ const vendorSchema = new mongoose.Schema(
       default: "sunrise",
     },
 
+    template: {
+      type: String,
+      enum: ["template1","template2","template3","template4","template5"],
+      default: "template1",
+    },
+
     branding: {
       logo:           { type: String, default: null },
       storeBanner:    { type: String, default: null },
@@ -52,6 +58,10 @@ const vendorSchema = new mongoose.Schema(
         merchantCode: { type: String, default: null },
         secretKey:    { type: String, default: null, select: false },
         isEnabled:    { type: Boolean, default: false },
+      },
+      khalti: {
+        secretKey: { type: String, default: null, select: false },
+        isEnabled: { type: Boolean, default: false },
       },
     },
 

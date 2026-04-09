@@ -68,10 +68,10 @@ export default function StoreRegisterPage() {
 
   if (!store) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: theme?.navBg || "#f8fafc" }}>
         <div className="relative">
-          <div className="w-16 h-16 border-4 border-gray-200 rounded-full" />
-          <div className="absolute top-0 w-16 h-16 border-4 border-t-transparent rounded-full animate-spin"
+          <div className="w-12 h-12 border-3 border-gray-200 rounded-full" />
+          <div className="absolute top-0 w-12 h-12 border-3 border-t-transparent rounded-full animate-spin"
             style={{ borderColor: theme?.primaryColor || "#000", borderTopColor: "transparent" }} />
         </div>
       </div>
@@ -83,61 +83,76 @@ export default function StoreRegisterPage() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col lg:flex-row bg-white">
-      {/* Left Panel - Brand Side */}
-      <div className="lg:w-1/2 relative overflow-hidden flex flex-col" style={{ backgroundColor: theme.navBg }}>
-        <div className="absolute inset-0">
-          <div className="absolute top-0 -left-4 w-96 h-96 rounded-full opacity-10 animate-pulse"
-            style={{ backgroundColor: theme.primaryColor }} />
-          <div className="absolute bottom-0 -right-4 w-96 h-96 rounded-full opacity-10 animate-pulse delay-1000"
-            style={{ backgroundColor: theme.primaryColor }} />
-        </div>
+    <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden" 
+      style={{ backgroundColor: theme.navBg }}>
+      
+      {/* Simple Background Pattern */}
+      <div className="absolute inset-0">
+        <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent" />
+        <div className="absolute inset-0" 
+          style={{
+            backgroundImage: `
+              linear-gradient(to right, ${theme.primaryColor}08 1px, transparent 1px),
+              linear-gradient(to bottom, ${theme.primaryColor}08 1px, transparent 1px)
+            `,
+            backgroundSize: '40px 40px'
+          }} 
+        />
+        <div className="absolute inset-0 opacity-30"
+          style={{
+            backgroundImage: `repeating-linear-gradient(45deg, ${theme.primaryColor}10 0px, ${theme.primaryColor}10 1px, transparent 1px, transparent 20px)`
+          }}
+        />
+        <div className="absolute top-20 left-10 w-64 h-64 rounded-full blur-3xl animate-float-slow"
+          style={{ backgroundColor: `${theme.primaryColor}15` }} />
+        <div className="absolute bottom-20 right-10 w-96 h-96 rounded-full blur-3xl animate-float-delayed"
+          style={{ backgroundColor: `${theme.primaryColor}10` }} />
+      </div>
 
-        <div className="relative z-10 flex-1 flex flex-col p-8 lg:p-12 xl:p-16">
-          {/* Header */}
-          <div className="flex items-center gap-4">
-            <div className="relative">
-              <div className="absolute inset-0 bg-white rounded-2xl opacity-20 blur-md" />
-              <div className="relative w-14 h-14 rounded-2xl flex items-center justify-center font-black text-2xl shadow-xl"
-                style={{ backgroundColor: theme.primaryColor, color: theme.buttonText }}>
-                {store.storeName[0].toUpperCase()}
+      {/* Main Container */}
+      <div className="relative z-10 w-full max-w-6xl animate-fade-in">
+        <div className="grid lg:grid-cols-2 gap-6">
+          
+          {/* Left Side - Brand Section */}
+          <div className="hidden lg:flex flex-col justify-between p-8 rounded-2xl backdrop-blur-xl bg-white/10"
+            style={{ border: `1px solid ${theme.primaryColor}20` }}>
+            
+            {/* Logo Section */}
+            <div className="flex items-center gap-3 mb-8 animate-slide-down">
+              {store.branding.logo ? (
+                <img src={store.branding.logo} alt={store.storeName} className="h-12 w-auto" />
+              ) : (
+                <div className="w-12 h-12 rounded-xl flex items-center justify-center font-black text-xl"
+                  style={{ backgroundColor: theme.primaryColor, color: theme.buttonText }}>
+                  {store.storeName[0].toUpperCase()}
+                </div>
+              )}
+              <div>
+                <h2 className="text-xl font-bold text-white">{store.storeName}</h2>
+                <p className="text-xs text-white/60">Join our community</p>
               </div>
             </div>
-            <div>
-              <span className="text-2xl font-black tracking-tight block" style={{ color: theme.navText }}>
-                {store.storeName}
-              </span>
-              <span className="text-sm opacity-60 flex items-center gap-1" style={{ color: theme.navText }}>
-                <Shield size={12} />
-                Join our community
-              </span>
-            </div>
-          </div>
 
-          {/* Hero Content */}
-          <div className="flex-1 flex flex-col justify-center max-w-lg">
-            <div className="space-y-6">
-              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full"
-                style={{ backgroundColor: "rgba(255,255,255,0.1)" }}>
-                <Sparkles size={14} style={{ color: theme.primaryColor }} />
-                <span className="text-sm font-medium" style={{ color: theme.navText }}>
-                  Get started in minutes
-                </span>
+            {/* Welcome Message */}
+            <div className="space-y-6 animate-slide-up">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 w-fit">
+                <Sparkles size={14} className="text-white" />
+                <span className="text-xs font-medium text-white">Get Started Today</span>
               </div>
-
-              <h1 className="text-5xl lg:text-6xl font-black leading-tight" style={{ color: theme.navText }}>
-                Join Our
+              
+              <h1 className="text-4xl font-bold text-white leading-tight">
+                Create your
                 <span className="block mt-2" style={{ color: theme.primaryColor }}>
-                  Shopping Family
+                  account now
                 </span>
               </h1>
-
-              <p className="text-lg opacity-70 leading-relaxed" style={{ color: theme.navText }}>
-                {store.branding.tagline || `Create your account and unlock exclusive benefits at ${store.storeName}.`}
+              
+              <p className="text-white/70 leading-relaxed">
+                {store.branding.tagline || `Join ${store.storeName} and unlock exclusive benefits, track orders, and enjoy a personalized shopping experience.`}
               </p>
 
-              {/* Benefits */}
-              <div className="grid grid-cols-2 gap-4 pt-6">
+              {/* Benefits Grid */}
+              <div className="grid grid-cols-2 gap-3 pt-4">
                 {[
                   "Free to join",
                   "Exclusive deals",
@@ -145,30 +160,321 @@ export default function StoreRegisterPage() {
                   "Order tracking",
                   "Member rewards",
                   "24/7 support"
-                ].map((benefit, i) => (
-                  <div key={i} className="flex items-center gap-2">
-                    <div className="w-6 h-6 rounded-full flex items-center justify-center shrink-0"
-                      style={{ backgroundColor: "rgba(255,255,255,0.1)" }}>
-                      <Check size={12} style={{ color: theme.primaryColor }} strokeWidth={3} />
+                ].map((benefit, idx) => (
+                  <div key={idx} className="flex items-center gap-2 text-white/80 group cursor-default">
+                    <div className="transform transition-transform group-hover:scale-110">
+                      <Check size={12} />
                     </div>
-                    <span className="text-sm font-medium" style={{ color: theme.navText }}>
-                      {benefit}
-                    </span>
+                    <span className="text-sm">{benefit}</span>
                   </div>
                 ))}
               </div>
             </div>
+
+            {/* Footer - Removed Sign In Link from here */}
+            <div className="mt-8 pt-6 border-t border-white/10 animate-fade-in">
+              <p className="text-xs text-white/50">
+                © 2024 {store.storeName}. All rights reserved.
+              </p>
+            </div>
           </div>
 
-          {/* Footer */}
-          <div className="mt-auto pt-8">
-            <div className="p-5 rounded-xl" style={{ backgroundColor: "rgba(255,255,255,0.05)" }}>
-              <p className="text-sm" style={{ color: theme.navText }}>
-                Already a member?{" "}
-                <Link href="/login" className="font-bold inline-flex items-center gap-1 group"
-                  style={{ color: theme.primaryColor }}>
+          {/* Right Side - Registration Form Card */}
+          <div className="bg-white rounded-2xl shadow-2xl p-6 md:p-8 animate-slide-up">
+            {/* Mobile Logo */}
+            <div className="lg:hidden flex items-center gap-3 mb-6 pb-4 border-b border-gray-100">
+              {store.branding.logo ? (
+                <img src={store.branding.logo} alt={store.storeName} className="h-10 w-auto" />
+              ) : (
+                <div className="w-10 h-10 rounded-lg flex items-center justify-center font-bold"
+                  style={{ backgroundColor: theme.primaryColor, color: theme.buttonText }}>
+                  {store.storeName[0].toUpperCase()}
+                </div>
+              )}
+              <div>
+                <h3 className="font-bold text-gray-900">{store.storeName}</h3>
+                <p className="text-xs text-gray-500">Create your account</p>
+              </div>
+            </div>
+
+            {/* Form Header */}
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 mb-1">Create Account</h2>
+              <p className="text-sm text-gray-500">Join us and start shopping today</p>
+            </div>
+
+            {/* Error Alert */}
+            {error && (
+              <div className="mb-6 flex items-center gap-3 bg-red-50 border border-red-200 rounded-xl p-3 animate-shake">
+                <AlertCircle size={18} className="text-red-500 flex-shrink-0" />
+                <div className="flex-1">
+                  <p className="text-red-700 text-xs font-medium">{error}</p>
+                </div>
+              </div>
+            )}
+
+            <form onSubmit={handleSubmit} className="space-y-4">
+              {/* Full Name */}
+              <div className="group">
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Full Name <span className="text-red-400">*</span>
+                </label>
+                <div className="relative">
+                  <User size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 transition-colors group-focus-within:text-gray-600" />
+                  <input
+                    type="text"
+                    placeholder="John Doe"
+                    value={form.name}
+                    onChange={(e) => handleChange("name", e.target.value)}
+                    className="w-full pl-10 pr-3 py-2.5 border rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none transition-all duration-200"
+                    style={{ borderColor: '#e5e7eb' }}
+                    onFocus={(e) => {
+                      e.target.style.borderColor = theme.primaryColor;
+                      e.target.style.boxShadow = `0 0 0 3px ${theme.primaryColor}20`;
+                    }}
+                    onBlur={(e) => {
+                      e.target.style.borderColor = '#e5e7eb';
+                      e.target.style.boxShadow = 'none';
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* Email */}
+              <div className="group">
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Email Address <span className="text-red-400">*</span>
+                </label>
+                <div className="relative">
+                  <Mail size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 transition-colors group-focus-within:text-gray-600" />
+                  <input
+                    type="email"
+                    placeholder="you@example.com"
+                    value={form.email}
+                    onChange={(e) => handleChange("email", e.target.value)}
+                    className="w-full pl-10 pr-3 py-2.5 border rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none transition-all duration-200"
+                    style={{ borderColor: '#e5e7eb' }}
+                    onFocus={(e) => {
+                      e.target.style.borderColor = theme.primaryColor;
+                      e.target.style.boxShadow = `0 0 0 3px ${theme.primaryColor}20`;
+                    }}
+                    onBlur={(e) => {
+                      e.target.style.borderColor = '#e5e7eb';
+                      e.target.style.boxShadow = 'none';
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* Phone & Age Row */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="group">
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Phone <span className="text-gray-400 text-xs">(Optional)</span>
+                  </label>
+                  <div className="relative">
+                    <Phone size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                    <input
+                      type="tel"
+                      placeholder="9800000000"
+                      value={form.phone}
+                      onChange={(e) => handleChange("phone", e.target.value)}
+                      className="w-full pl-10 pr-3 py-2.5 border rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none transition-all duration-200"
+                      style={{ borderColor: '#e5e7eb' }}
+                      onFocus={(e) => {
+                        e.target.style.borderColor = theme.primaryColor;
+                        e.target.style.boxShadow = `0 0 0 3px ${theme.primaryColor}20`;
+                      }}
+                      onBlur={(e) => {
+                        e.target.style.borderColor = '#e5e7eb';
+                        e.target.style.boxShadow = 'none';
+                      }}
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Age <span className="text-gray-400 text-xs">(Optional)</span>
+                  </label>
+                  <input
+                    type="number"
+                    placeholder="25"
+                    min={13}
+                    max={120}
+                    value={form.age}
+                    onChange={(e) => handleChange("age", e.target.value)}
+                    className="w-full px-3 py-2.5 border rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none transition-all duration-200"
+                    style={{ borderColor: '#e5e7eb' }}
+                    onFocus={(e) => {
+                      e.target.style.borderColor = theme.primaryColor;
+                      e.target.style.boxShadow = `0 0 0 3px ${theme.primaryColor}20`;
+                    }}
+                    onBlur={(e) => {
+                      e.target.style.borderColor = '#e5e7eb';
+                      e.target.style.boxShadow = 'none';
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* Password */}
+              <div className="group">
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Password <span className="text-red-400">*</span>
+                </label>
+                <div className="relative">
+                  <Lock size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 transition-colors group-focus-within:text-gray-600" />
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    placeholder="Create a strong password"
+                    value={form.password}
+                    onChange={(e) => handleChange("password", e.target.value)}
+                    className="w-full pl-10 pr-10 py-2.5 border rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none transition-all duration-200"
+                    style={{ borderColor: '#e5e7eb' }}
+                    onFocus={(e) => {
+                      e.target.style.borderColor = theme.primaryColor;
+                      e.target.style.boxShadow = `0 0 0 3px ${theme.primaryColor}20`;
+                    }}
+                    onBlur={(e) => {
+                      e.target.style.borderColor = '#e5e7eb';
+                      e.target.style.boxShadow = 'none';
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-all duration-200"
+                  >
+                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+              </div>
+
+              {/* Confirm Password */}
+              <div className="group">
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Confirm Password <span className="text-red-400">*</span>
+                </label>
+                <div className="relative">
+                  <Lock size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 transition-colors group-focus-within:text-gray-600" />
+                  <input
+                    type={showConfirmPassword ? "text" : "password"}
+                    placeholder="Re-enter your password"
+                    value={form.confirmPassword}
+                    onChange={(e) => handleChange("confirmPassword", e.target.value)}
+                    className="w-full pl-10 pr-10 py-2.5 border rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none transition-all duration-200"
+                    style={{ 
+                      borderColor: form.confirmPassword 
+                        ? (doPasswordsMatch ? '#22c55e' : '#ef4444')
+                        : '#e5e7eb'
+                    }}
+                    onFocus={(e) => {
+                      if (!form.confirmPassword) e.target.style.borderColor = theme.primaryColor;
+                      e.target.style.boxShadow = `0 0 0 3px ${theme.primaryColor}20`;
+                    }}
+                    onBlur={(e) => {
+                      if (!form.confirmPassword) e.target.style.borderColor = '#e5e7eb';
+                      e.target.style.boxShadow = 'none';
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-all duration-200"
+                  >
+                    {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+                
+                {/* Password Match Indicator */}
+                {form.confirmPassword && (
+                  <div className="flex items-center gap-2 mt-1">
+                    <div className={`w-3 h-3 rounded-full flex items-center justify-center ${doPasswordsMatch ? 'bg-green-500' : 'bg-red-500'}`}>
+                      {doPasswordsMatch && <Check size={8} className="text-white" strokeWidth={3} />}
+                    </div>
+                    <span className={`text-xs ${doPasswordsMatch ? 'text-green-600' : 'text-red-600'}`}>
+                      {doPasswordsMatch ? 'Passwords match' : 'Passwords do not match'}
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {/* Password Requirements */}
+              {form.password && (
+                <div className="bg-gray-50 rounded-lg p-3 border border-gray-100">
+                  <p className="text-xs font-medium text-gray-500 mb-2">Password requirements:</p>
+                  <div className="space-y-1">
+                    {passwordChecks.map((c) => (
+                      <div key={c.label} className="flex items-center gap-2">
+                        <div className={`w-3 h-3 rounded-full flex items-center justify-center ${c.pass ? "bg-green-500" : "bg-gray-200"}`}>
+                          {c.pass && <Check size={8} className="text-white" strokeWidth={3} />}
+                        </div>
+                        <span className={`text-xs ${c.pass ? "text-green-600" : "text-gray-400"}`}>
+                          {c.label}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Terms & Privacy */}
+              <div className="flex items-start gap-2 pt-2">
+                <input 
+                  type="checkbox" 
+                  id="terms" 
+                  className="mt-0.5 w-3.5 h-3.5 rounded border-gray-300 focus:ring-2 transition-all"
+                  style={{ 
+                    accentColor: theme.primaryColor,
+                    focusRingColor: theme.primaryColor
+                  }} 
+                />
+                <label htmlFor="terms" className="text-xs text-gray-500 leading-relaxed">
+                  I agree to the{' '}
+                  <Link href="/terms" className="font-semibold hover:underline" style={{ color: theme.primaryColor }}>
+                    Terms of Service
+                  </Link>{' '}
+                  and{' '}
+                  <Link href="/privacy" className="font-semibold hover:underline" style={{ color: theme.primaryColor }}>
+                    Privacy Policy
+                  </Link>
+                </label>
+              </div>
+
+              {/* Submit Button */}
+              <button
+                type="submit"
+                disabled={!isFormValid || isSubmitting}
+                className="w-full py-2.5 rounded-lg font-semibold text-sm flex items-center justify-center gap-2 transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 mt-2"
+                style={{ 
+                  backgroundColor: theme.primaryColor,
+                  color: theme.buttonText
+                }}
+              >
+                {isSubmitting ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    <span>Creating account...</span>
+                  </>
+                ) : (
+                  <>
+                    <span>Create Account</span>
+                    <ArrowRight size={16} />
+                  </>
+                )}
+              </button>
+            </form>
+
+            {/* Sign In Link - Now prominently placed at the bottom of the form card */}
+            <div className="mt-6 pt-4 text-center border-t border-gray-100">
+              <p className="text-sm text-gray-500">
+                Already have an account?{" "}
+                <Link 
+                  href="/login" 
+                  className="font-semibold hover:underline transition-all duration-200"
+                  style={{ color: theme.primaryColor }}
+                >
                   Sign in here
-                  <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
                 </Link>
               </p>
             </div>
@@ -176,297 +482,80 @@ export default function StoreRegisterPage() {
         </div>
       </div>
 
-      {/* Right Panel - Registration Form */}
-      <div className="lg:w-1/2 flex items-center justify-center p-6 lg:p-12 xl:p-16 bg-gradient-to-br from-gray-50 to-white overflow-y-auto">
-        <div className="w-full max-w-md py-8">
-
-          {/* Mobile Logo */}
-          <div className="lg:hidden flex items-center gap-3 mb-10">
-            <div className="w-12 h-12 rounded-xl flex items-center justify-center font-black text-xl shadow-lg"
-              style={{ backgroundColor: theme.primaryColor, color: theme.buttonText }}>
-              {store.storeName[0].toUpperCase()}
-            </div>
-            <div>
-              <span className="text-xl font-black text-gray-900">{store.storeName}</span>
-              <p className="text-xs text-gray-400">Create your account</p>
-            </div>
-          </div>
-
-          {/* Form Header */}
-          <div className="mb-8">
-            <div className="inline-flex items-center gap-2 px-4 py-2 bg-amber-50 rounded-full mb-4">
-              <Shield size={12} className="text-amber-600" />
-              <span className="text-xs font-bold text-amber-600">SECURE REGISTRATION</span>
-            </div>
-            <h2 className="text-4xl font-black text-gray-900 mb-2">Create Account</h2>
-            <p className="text-gray-500">Join {store.storeName} and start shopping</p>
-          </div>
-
-          {/* Error Alert */}
-          {error && (
-            <div className="mb-6 flex items-start gap-3 bg-gradient-to-r from-red-50 to-rose-50 border border-red-200 rounded-xl p-5 animate-shake">
-              <div className="w-8 h-8 bg-red-100 rounded-lg flex items-center justify-center">
-                <AlertCircle size={18} className="text-red-500" />
-              </div>
-              <div className="flex-1">
-                <p className="text-red-700 text-sm font-medium">Registration Failed</p>
-                <p className="text-red-500 text-xs mt-1">{error}</p>
-              </div>
-            </div>
-          )}
-
-          <form onSubmit={handleSubmit} className="space-y-5">
-
-            {/* Full Name */}
-            <div className="space-y-2">
-              <label className="block text-sm font-bold text-gray-700">
-                Full Name <span className="text-red-400">*</span>
-              </label>
-              <div className="relative group">
-                <div className="absolute inset-0 rounded-xl opacity-0 group-focus-within:opacity-100 transition-opacity blur-sm"
-                  style={{ background: `linear-gradient(to right, ${theme.primaryColor}40, ${theme.primaryColor}80)` }} />
-                <div className="relative">
-                  <User size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
-                  <input
-                    type="text"
-                    placeholder="Youe Name"
-                    value={form.name}
-                    onChange={(e) => handleChange("name", e.target.value)}
-                    className="w-full pl-11 pr-4 py-4 border-2 border-gray-200 rounded-xl text-sm text-gray-900 placeholder-gray-400 focus:outline-none transition-all bg-gray-50 focus:bg-white"
-                    onFocus={(e) => e.target.style.borderColor = theme.primaryColor}
-                    onBlur={(e) => e.target.style.borderColor = "#e5e7eb"}
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Email */}
-            <div className="space-y-2">
-              <label className="block text-sm font-bold text-gray-700">
-                Email Address <span className="text-red-400">*</span>
-              </label>
-              <div className="relative group">
-                <div className="absolute inset-0 rounded-xl opacity-0 group-focus-within:opacity-100 transition-opacity blur-sm"
-                  style={{ background: `linear-gradient(to right, ${theme.primaryColor}40, ${theme.primaryColor}80)` }} />
-                <div className="relative">
-                  <Mail size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
-                  <input
-                    type="email"
-                    placeholder="you@example.com"
-                    value={form.email}
-                    onChange={(e) => handleChange("email", e.target.value)}
-                    className="w-full pl-11 pr-4 py-4 border-2 border-gray-200 rounded-xl text-sm text-gray-900 placeholder-gray-400 focus:outline-none transition-all bg-gray-50 focus:bg-white"
-                    onFocus={(e) => e.target.style.borderColor = theme.primaryColor}
-                    onBlur={(e) => e.target.style.borderColor = "#e5e7eb"}
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Phone & Age */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <label className="block text-sm font-bold text-gray-700">
-                  Phone <span className="text-gray-400 font-normal"></span>
-                </label>
-                <div className="relative group">
-                  <Phone size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
-                  <input
-                    type="tel"
-                    placeholder="98XXXXXXXX"
-                    value={form.phone}
-                    onChange={(e) => handleChange("phone", e.target.value)}
-                    className="w-full pl-11 pr-4 py-4 border-2 border-gray-200 rounded-xl text-sm text-gray-900 placeholder-gray-400 focus:outline-none transition-all bg-gray-50 focus:bg-white"
-                    onFocus={(e) => e.target.style.borderColor = theme.primaryColor}
-                    onBlur={(e) => e.target.style.borderColor = "#e5e7eb"}
-                  />
-                </div>
-              </div>
-              <div className="space-y-2">
-                <label className="block text-sm font-bold text-gray-700">
-                  Age <span className="text-gray-400 font-normal"></span>
-                </label>
-                <input
-                  type="number"
-                  placeholder="25"
-                  min={13}
-                  max={120}
-                  value={form.age}
-                  onChange={(e) => handleChange("age", e.target.value)}
-                  className="w-full px-4 py-4 border-2 border-gray-200 rounded-xl text-sm text-gray-900 placeholder-gray-400 focus:outline-none transition-all bg-gray-50 focus:bg-white"
-                  onFocus={(e) => e.target.style.borderColor = theme.primaryColor}
-                  onBlur={(e) => e.target.style.borderColor = "#e5e7eb"}
-                />
-              </div>
-            </div>
-
-            {/* Password */}
-            <div className="space-y-2">
-              <label className="block text-sm font-bold text-gray-700">
-                Password <span className="text-red-400">*</span>
-              </label>
-              <div className="relative group">
-                <div className="absolute inset-0 rounded-xl opacity-0 group-focus-within:opacity-100 transition-opacity blur-sm"
-                  style={{ background: `linear-gradient(to right, ${theme.primaryColor}40, ${theme.primaryColor}80)` }} />
-                <div className="relative">
-                  <Lock size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
-                  <input
-                    type={showPassword ? "text" : "password"}
-                    placeholder="Create a strong password"
-                    value={form.password}
-                    onChange={(e) => handleChange("password", e.target.value)}
-                    className="w-full pl-11 pr-12 py-4 border-2 border-gray-200 rounded-xl text-sm text-gray-900 placeholder-gray-400 focus:outline-none transition-all bg-gray-50 focus:bg-white"
-                    onFocus={(e) => e.target.style.borderColor = theme.primaryColor}
-                    onBlur={(e) => e.target.style.borderColor = "#e5e7eb"}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                  >
-                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* Confirm Password */}
-            <div className="space-y-2">
-              <label className="block text-sm font-bold text-gray-700">
-                Confirm Password <span className="text-red-400">*</span>
-              </label>
-              <div className="relative group">
-                <div className="absolute inset-0 rounded-xl opacity-0 group-focus-within:opacity-100 transition-opacity blur-sm"
-                  style={{ background: `linear-gradient(to right, ${theme.primaryColor}40, ${theme.primaryColor}80)` }} />
-                <div className="relative">
-                  <Lock size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
-                  <input
-                    type={showConfirmPassword ? "text" : "password"}
-                    placeholder="Re-enter your password"
-                    value={form.confirmPassword}
-                    onChange={(e) => handleChange("confirmPassword", e.target.value)}
-                    className={`w-full pl-11 pr-12 py-4 border-2 rounded-xl text-sm text-gray-900 placeholder-gray-400 focus:outline-none transition-all bg-gray-50 focus:bg-white
-                      ${form.confirmPassword && (doPasswordsMatch ? 'border-green-500' : 'border-red-500')}`}
-                    onFocus={(e) => {
-                      if (!form.confirmPassword) e.target.style.borderColor = theme.primaryColor;
-                    }}
-                    onBlur={(e) => {
-                      if (!form.confirmPassword) e.target.style.borderColor = "#e5e7eb";
-                    }}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                  >
-                    {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                  </button>
-                </div>
-              </div>
-              
-              {/* Password Match Indicator */}
-              {form.confirmPassword && (
-                <div className="flex items-center gap-2 mt-1">
-                  <div className={`w-4 h-4 rounded-full flex items-center justify-center ${doPasswordsMatch ? 'bg-green-500' : 'bg-red-500'}`}>
-                    {doPasswordsMatch ? (
-                      <Check size={10} className="text-white" strokeWidth={3} />
-                    ) : (
-                      <span className="text-white text-xs">!</span>
-                    )}
-                  </div>
-                  <span className={`text-xs font-medium ${doPasswordsMatch ? 'text-green-600' : 'text-red-600'}`}>
-                    {doPasswordsMatch ? 'Passwords match' : 'Passwords do not match'}
-                  </span>
-                </div>
-              )}
-            </div>
-
-            {/* Password Requirements */}
-            {form.password && (
-              <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
-                <p className="text-xs font-medium text-gray-500 mb-2">Password requirements:</p>
-                <div className="space-y-1.5">
-                  {passwordChecks.map((c) => (
-                    <div key={c.label} className="flex items-center gap-2">
-                      <div className={`w-4 h-4 rounded-full flex items-center justify-center transition-colors ${c.pass ? "bg-green-500" : "bg-gray-200"}`}>
-                        {c.pass && <Check size={10} className="text-white" strokeWidth={3} />}
-                      </div>
-                      <span className={`text-xs font-medium ${c.pass ? "text-green-600" : "text-gray-400"}`}>
-                        {c.label}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Terms & Privacy */}
-            <div className="flex items-start gap-2">
-              <input type="checkbox" id="terms" className="mt-1 w-4 h-4 rounded border-gray-300 text-amber-500 focus:ring-amber-500" />
-              <label htmlFor="terms" className="text-xs text-gray-500">
-                I agree to the{' '}
-                <Link href="/terms" className="font-semibold hover:underline" style={{ color: theme.primaryColor }}>
-                  Terms of Service
-                </Link>{' '}
-                and{' '}
-                <Link href="/privacy" className="font-semibold hover:underline" style={{ color: theme.primaryColor }}>
-                  Privacy Policy
-                </Link>
-              </label>
-            </div>
-
-            {/* Submit Button */}
-            <button
-              type="submit"
-              disabled={!isFormValid || isSubmitting}
-              className="w-full py-4 rounded-xl font-bold text-base flex items-center justify-center gap-2 transition-all duration-300 relative overflow-hidden group disabled:opacity-50 disabled:cursor-not-allowed hover:scale-[1.02]"
-              style={{ 
-                background: `linear-gradient(to right, ${theme.buttonBg}, ${theme.primaryColor})`,
-                color: theme.buttonText,
-                boxShadow: `0 10px 20px -5px ${theme.primaryColor}80`
-              }}
-            >
-              {isSubmitting ? (
-                <>
-                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  <span>Creating account...</span>
-                </>
-              ) : (
-                <>
-                  <span>Create Account</span>
-                  <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
-                </>
-              )}
-            </button>
-          </form>
-
-          {/* Mobile Sign In Link */}
-          <p className="lg:hidden text-center text-gray-500 text-sm mt-8">
-            Already have an account?{" "}
-            <Link href="/login" className="font-semibold hover:underline" style={{ color: theme.primaryColor }}>
-              Sign in
-            </Link>
-          </p>
-        </div>
-      </div>
-
+      {/* Animations */}
       <style jsx>{`
+        @keyframes fadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+        
+        @keyframes slideDown {
+          from {
+            opacity: 0;
+            transform: translateY(-20px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+        
+        @keyframes slideUp {
+          from {
+            opacity: 0;
+            transform: translateY(20px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+        
         @keyframes shake {
           0%, 100% { transform: translateX(0); }
           25% { transform: translateX(-5px); }
           75% { transform: translateX(5px); }
         }
+        
+        @keyframes floatSlow {
+          0%, 100% { transform: translate(0, 0); }
+          50% { transform: translate(20px, -20px); }
+        }
+        
+        @keyframes floatDelayed {
+          0%, 100% { transform: translate(0, 0); }
+          50% { transform: translate(-20px, 20px); }
+        }
+        
+        .animate-fade-in {
+          animation: fadeIn 0.6s ease-out;
+        }
+        
+        .animate-slide-down {
+          animation: slideDown 0.5s ease-out;
+        }
+        
+        .animate-slide-up {
+          animation: slideUp 0.5s ease-out;
+        }
+        
         .animate-shake {
           animation: shake 0.2s ease-in-out;
         }
-        .delay-1000 {
-          animation-delay: 1s;
+        
+        .animate-float-slow {
+          animation: floatSlow 8s ease-in-out infinite;
+        }
+        
+        .animate-float-delayed {
+          animation: floatDelayed 10s ease-in-out infinite;
         }
       `}</style>
     </div>
   );
 }
 
+// OTP Verification Component
 function OTPStep({ userId, email, theme, store }: { userId: string; email: string; theme: any; store: any }) {
   const router = useRouter();
   const [otp, setOtp] = useState("");
@@ -498,76 +587,144 @@ function OTPStep({ userId, email, theme, store }: { userId: string; email: strin
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-6" style={{ backgroundColor: theme.bgColor }}>
-      <div className="w-full max-w-md text-center">
-        <div className="w-20 h-20 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-xl"
-          style={{ backgroundColor: theme.primaryColor }}>
-          <Mail size={36} style={{ color: theme.buttonText }} />
-        </div>
-        <h2 className="text-3xl font-black text-gray-900 mb-2">Check your email</h2>
-        <p className="text-gray-500 mb-2">We sent a 6-digit verification code to</p>
-        <p className="font-semibold mb-8 text-lg" style={{ color: theme.primaryColor }}>{email}</p>
-
-        {error && (
-          <div className="mb-6 flex items-start gap-3 bg-red-50 border border-red-200 rounded-xl p-4 text-left">
-            <AlertCircle size={18} className="text-red-500 mt-0.5 shrink-0" />
-            <p className="text-red-700 text-sm">{error}</p>
-          </div>
-        )}
-
-        <input
-          type="text"
-          maxLength={6}
-          placeholder="000000"
-          value={otp}
-          onChange={(e) => { setOtp(e.target.value.replace(/\D/g, "").slice(0, 6)); setError(null); }}
-          className="w-full text-center text-3xl font-black tracking-[0.5em] py-4 border-2 border-gray-200 rounded-xl focus:outline-none bg-gray-50 focus:bg-white transition-colors mb-6 text-gray-900"
-          onFocus={(e) => (e.target.style.borderColor = theme.primaryColor)}
-          onBlur={(e) => (e.target.style.borderColor = "#e5e7eb")}
+    <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden" 
+      style={{ backgroundColor: theme.navBg }}>
+      
+      {/* Background Pattern */}
+      <div className="absolute inset-0">
+        <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent" />
+        <div className="absolute inset-0" 
+          style={{
+            backgroundImage: `
+              linear-gradient(to right, ${theme.primaryColor}08 1px, transparent 1px),
+              linear-gradient(to bottom, ${theme.primaryColor}08 1px, transparent 1px)
+            `,
+            backgroundSize: '40px 40px'
+          }} 
         />
-
-        <button
-          onClick={handleVerify}
-          disabled={otp.length !== 6 || isSubmitting}
-          className="w-full py-4 rounded-xl font-bold text-base flex items-center justify-center gap-2 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed hover:scale-[1.02]"
-          style={{ 
-            background: `linear-gradient(to right, ${theme.buttonBg}, ${theme.primaryColor})`,
-            color: theme.buttonText,
-            boxShadow: `0 10px 20px -5px ${theme.primaryColor}80`
-          }}
-        >
-          {isSubmitting ? (
-            <>
-              <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-              <span>Verifying...</span>
-            </>
-          ) : (
-            <>
-              <span>Verify Email</span>
-              <ArrowRight size={18} />
-            </>
-          )}
-        </button>
-
-        <p className="mt-6 text-gray-500 text-sm">
-          Didn't receive it?{" "}
-          {resent ? (
-            <span className="text-green-600 font-semibold">✓ OTP resent</span>
-          ) : (
-            <button 
-              onClick={handleResend} 
-              className="font-semibold hover:underline"
-              style={{ color: theme.primaryColor }}
-            >
-              Resend OTP
-            </button>
-          )}
-        </p>
-
-        <Link href="/login" className="mt-4 inline-block text-sm text-gray-400 hover:text-gray-600 transition-colors">
-          ← Back to login
-        </Link>
+        <div className="absolute top-20 left-10 w-64 h-64 rounded-full blur-3xl animate-float-slow"
+          style={{ backgroundColor: `${theme.primaryColor}15` }} />
       </div>
+
+      {/* OTP Card */}
+      <div className="relative z-10 w-full max-w-md">
+        <div className="bg-white rounded-2xl shadow-2xl p-8 text-center animate-slide-up">
+          {/* Logo */}
+          <div className="flex justify-center mb-6">
+            <div className="w-16 h-16 rounded-xl flex items-center justify-center shadow-lg"
+              style={{ backgroundColor: theme.primaryColor }}>
+              <Mail size={32} style={{ color: theme.buttonText }} />
+            </div>
+          </div>
+          
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">Verify your email</h2>
+          <p className="text-sm text-gray-500 mb-2">We sent a verification code to</p>
+          <p className="font-semibold text-sm mb-6" style={{ color: theme.primaryColor }}>{email}</p>
+
+          {/* Error Alert */}
+          {error && (
+            <div className="mb-4 flex items-center gap-2 bg-red-50 border border-red-200 rounded-lg p-2">
+              <AlertCircle size={14} className="text-red-500 flex-shrink-0" />
+              <p className="text-red-700 text-xs">{error}</p>
+            </div>
+          )}
+
+          {/* OTP Input */}
+          <input
+            type="text"
+            maxLength={6}
+            placeholder="000000"
+            value={otp}
+            onChange={(e) => { 
+              setOtp(e.target.value.replace(/\D/g, "").slice(0, 6)); 
+              setError(null); 
+            }}
+            className="w-full text-center text-2xl font-bold tracking-[0.3em] py-3 border rounded-lg focus:outline-none transition-all duration-200 mb-6"
+            style={{ borderColor: '#e5e7eb' }}
+            onFocus={(e) => {
+              e.target.style.borderColor = theme.primaryColor;
+              e.target.style.boxShadow = `0 0 0 3px ${theme.primaryColor}20`;
+            }}
+            onBlur={(e) => {
+              e.target.style.borderColor = '#e5e7eb';
+              e.target.style.boxShadow = 'none';
+            }}
+          />
+
+          {/* Verify Button */}
+          <button
+            onClick={handleVerify}
+            disabled={otp.length !== 6 || isSubmitting}
+            className="w-full py-2.5 rounded-lg font-semibold text-sm flex items-center justify-center gap-2 transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 mb-4"
+            style={{ 
+              backgroundColor: theme.primaryColor,
+              color: theme.buttonText
+            }}
+          >
+            {isSubmitting ? (
+              <>
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                <span>Verifying...</span>
+              </>
+            ) : (
+              <>
+                <span>Verify Email</span>
+                <ArrowRight size={16} />
+              </>
+            )}
+          </button>
+
+          {/* Resend Link */}
+          <p className="text-xs text-gray-500">
+            Didn't receive it?{" "}
+            {resent ? (
+              <span className="text-green-600 font-semibold">✓ Code resent</span>
+            ) : (
+              <button 
+                onClick={handleResend} 
+                className="font-semibold hover:underline"
+                style={{ color: theme.primaryColor }}
+              >
+                Resend code
+              </button>
+            )}
+          </p>
+
+          {/* Back Link */}
+          <Link 
+            href="/login" 
+            className="inline-block mt-4 text-xs text-gray-400 hover:text-gray-600 transition-colors"
+          >
+            ← Back to login
+          </Link>
+        </div>
+      </div>
+
+      <style jsx>{`
+        @keyframes slideUp {
+          from {
+            opacity: 0;
+            transform: translateY(20px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+        
+        @keyframes floatSlow {
+          0%, 100% { transform: translate(0, 0); }
+          50% { transform: translate(20px, -20px); }
+        }
+        
+        .animate-slide-up {
+          animation: slideUp 0.5s ease-out;
+        }
+        
+        .animate-float-slow {
+          animation: floatSlow 8s ease-in-out infinite;
+        }
+      `}</style>
     </div>
   );
 }

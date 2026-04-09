@@ -1,13 +1,12 @@
 "use client";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState } from "react";
 import {
-  Search, ChevronLeft, ChevronRight, SlidersHorizontal,
-  Package, X, Loader2,
+  Search, ChevronLeft, ChevronRight,
+  Package, X,
 } from "lucide-react";
 import { useStore } from "@/components/providers/StoreProvider";
-import StoreNavbar from "@/components/store/StoreNavbar";
-import StoreFooter from "@/components/store/StoreFooter";
-import ProductCard from "@/components/store/ProductCard";
+import { getTemplate } from "@/components/store/templates";
+import CategoryChips from "@/components/store/CategoryChips";
 import api from "@/lib/axios";
 
 interface Product {
@@ -19,12 +18,23 @@ interface Product {
   category: string;
   images: string[];
   stock: number;
+  discountPercent?: number;
+  isFeatured?: boolean;
+  effectivePrice?: number;
 }
 
 const LIMIT = 12;
 
 export default function StorePage() {
-  const { store, themeColors: theme, loading: storeLoading, error: storeError } = useStore();
+  const { store, themeColors: theme, template, loading: storeLoading, error: storeError } = useStore();
+  const {
+    HeroSection,
+    NavbarLayout,
+    FooterLayout,
+    ProductCard,
+    FeaturedSection,
+    SaleSection,
+  } = getTemplate(template);
 
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -35,6 +45,8 @@ export default function StorePage() {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
+  const [sort, setSort] = useState("newest");
+  const [inStock, setInStock] = useState(false);
 
   // Debounce search
   useEffect(() => {
@@ -45,21 +57,11 @@ export default function StorePage() {
     return () => clearTimeout(timer);
   }, [search]);
 
-  // Fetch categories once
+  // Fetch categories from dedicated endpoint
   useEffect(() => {
     if (!store) return;
-    api
-      .get(`/store/${store.subdomain}/products?limit=100`)
-      .then(({ data }) => {
-        const cats = [
-          ...new Set(
-            (data.products || [])
-              .map((p: Product) => p.category)
-              .filter(Boolean)
-          ),
-        ] as string[];
-        setCategories(cats);
-      })
+    api.get(`/store/${store.subdomain}/categories`)
+      .then(({ data }) => setCategories(data.categories || []))
       .catch(() => {});
   }, [store]);
 
@@ -67,7 +69,7 @@ export default function StorePage() {
   useEffect(() => {
     if (!store) return;
     fetchProducts();
-  }, [store, debouncedSearch, category, page]);
+  }, [store, debouncedSearch, category, page, sort, inStock]);
 
   const fetchProducts = async () => {
     if (!store) return;
@@ -76,13 +78,13 @@ export default function StorePage() {
       const params: Record<string, string> = {
         page: String(page),
         limit: String(LIMIT),
+        sort,
       };
       if (debouncedSearch) params.search = debouncedSearch;
       if (category !== "all") params.category = category;
+      if (inStock) params.inStock = "true";
 
-      const { data } = await api.get(`/store/${store.subdomain}/products`, {
-        params,
-      });
+      const { data } = await api.get(`/store/${store.subdomain}/products`, { params });
       setProducts(data.products || []);
       setTotalPages(data.pages || 1);
       setTotal(data.total || 0);
@@ -91,6 +93,16 @@ export default function StorePage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const hasFilters = debouncedSearch || category !== "all" || sort !== "newest" || inStock;
+
+  const clearFilters = () => {
+    setSearch("");
+    setCategory("all");
+    setSort("newest");
+    setInStock(false);
+    setPage(1);
   };
 
   if (storeLoading) {
@@ -115,39 +127,38 @@ export default function StorePage() {
 
   return (
     <div className="min-h-screen flex flex-col" style={{ backgroundColor: theme.bgColor }}>
-      <StoreNavbar />
+      <NavbarLayout />
 
       {/* Hero */}
-      <section
-        className="relative overflow-hidden"
-        style={{ backgroundColor: theme.navBg }}
-      >
-        <div className="absolute -top-32 -right-32 w-96 h-96 rounded-full opacity-10"
-          style={{ backgroundColor: theme.navText }} />
-        <div className="absolute -bottom-24 -left-24 w-80 h-80 rounded-full opacity-10"
-          style={{ backgroundColor: theme.navText }} />
+      <HeroSection />
 
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-20 text-center">
-          <h1
-            className="text-3xl sm:text-5xl font-black leading-tight mb-4"
-            style={{ color: theme.navText }}
-          >
-            Welcome to {store.storeName}
-          </h1>
-          <p
-            className="text-base sm:text-lg max-w-lg mx-auto opacity-70"
-            style={{ color: theme.navText }}
-          >
-            {store.branding.tagline || "Discover our amazing collection of products."}
-          </p>
-        </div>
-      </section>
+      {/* Category Chips */}
+      {categories.length > 0 && (
+        <section className="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 pt-8">
+          <CategoryChips
+            categories={categories}
+            selected={category}
+            onSelect={(c) => { setCategory(c); setPage(1); }}
+            theme={theme}
+          />
+        </section>
+      )}
 
-      {/* Products Section */}
-      <section className="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-10 sm:py-14 flex-1">
+      {/* Featured Products */}
+      <FeaturedSection subdomain={store.subdomain} theme={theme} />
 
-        {/* Search + Filter Bar */}
-        <div className="flex flex-col sm:flex-row gap-3 mb-8">
+      {/* Sale Products */}
+      <SaleSection subdomain={store.subdomain} theme={theme} />
+
+      {/* All Products Section */}
+      <section id="all-products" className="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-10 sm:py-14 flex-1">
+
+        <h2 className="text-xl sm:text-2xl font-black mb-6" style={{ color: theme.textColor }}>
+          All Products
+        </h2>
+
+        {/* Search + Sort + Filter Bar */}
+        <div className="flex flex-col sm:flex-row gap-3 mb-6">
           {/* Search */}
           <div className="relative flex-1">
             <Search
@@ -174,37 +185,33 @@ export default function StorePage() {
             )}
           </div>
 
-          {/* Category filter */}
-          {categories.length > 0 && (
-            <div className="relative">
-              <SlidersHorizontal
-                size={16}
-                className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400"
-              />
-              <select
-                value={category}
-                onChange={(e) => {
-                  setCategory(e.target.value);
-                  setPage(1);
-                }}
-                className="pl-10 pr-8 py-3 border-2 rounded-xl text-sm text-gray-700 focus:outline-none bg-white appearance-none cursor-pointer min-w-[160px]"
-                style={{ borderColor: theme.borderColor }}
-                onFocus={(e) =>
-                  (e.target.style.borderColor = theme.primaryColor)
-                }
-                onBlur={(e) =>
-                  (e.target.style.borderColor = theme.borderColor)
-                }
-              >
-                <option value="all">All Categories</option>
-                {categories.map((c) => (
-                  <option key={c} value={c}>
-                    {c}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
+          {/* Sort */}
+          <select
+            value={sort}
+            onChange={(e) => { setSort(e.target.value); setPage(1); }}
+            className="px-4 py-3 border-2 rounded-xl text-sm text-gray-700 focus:outline-none bg-white appearance-none cursor-pointer min-w-[160px]"
+            style={{ borderColor: theme.borderColor }}
+            onFocus={(e) => (e.target.style.borderColor = theme.primaryColor)}
+            onBlur={(e) => (e.target.style.borderColor = theme.borderColor)}
+          >
+            <option value="newest">Newest</option>
+            <option value="price_asc">Price: Low to High</option>
+            <option value="price_desc">Price: High to Low</option>
+            <option value="name_asc">Name: A to Z</option>
+          </select>
+
+          {/* In Stock Toggle */}
+          <button
+            onClick={() => { setInStock(!inStock); setPage(1); }}
+            className="px-4 py-3 border-2 rounded-xl text-sm font-semibold transition-all whitespace-nowrap"
+            style={{
+              borderColor: inStock ? theme.primaryColor : theme.borderColor,
+              backgroundColor: inStock ? theme.secondaryColor : "white",
+              color: inStock ? theme.accentColor : "#6b7280",
+            }}
+          >
+            In Stock Only
+          </button>
         </div>
 
         {/* Results info */}
@@ -215,13 +222,9 @@ export default function StorePage() {
                 ? "No products found"
                 : `Showing ${(page - 1) * LIMIT + 1}–${Math.min(page * LIMIT, total)} of ${total} products`}
             </p>
-            {(debouncedSearch || category !== "all") && (
+            {hasFilters && (
               <button
-                onClick={() => {
-                  setSearch("");
-                  setCategory("all");
-                  setPage(1);
-                }}
+                onClick={clearFilters}
                 className="text-sm font-semibold flex items-center gap-1 hover:underline"
                 style={{ color: theme.primaryColor }}
               >
@@ -243,23 +246,11 @@ export default function StorePage() {
                   border: `1px solid ${theme.borderColor}`,
                 }}
               >
-                <div
-                  className="aspect-square"
-                  style={{ backgroundColor: theme.secondaryColor }}
-                />
+                <div className="aspect-square" style={{ backgroundColor: theme.secondaryColor }} />
                 <div className="p-4 space-y-3">
-                  <div
-                    className="h-3 rounded-lg w-1/3"
-                    style={{ backgroundColor: theme.borderColor }}
-                  />
-                  <div
-                    className="h-4 rounded-lg w-3/4"
-                    style={{ backgroundColor: theme.borderColor }}
-                  />
-                  <div
-                    className="h-5 rounded-lg w-1/2"
-                    style={{ backgroundColor: theme.secondaryColor }}
-                  />
+                  <div className="h-3 rounded-lg w-1/3" style={{ backgroundColor: theme.borderColor }} />
+                  <div className="h-4 rounded-lg w-3/4" style={{ backgroundColor: theme.borderColor }} />
+                  <div className="h-5 rounded-lg w-1/2" style={{ backgroundColor: theme.secondaryColor }} />
                 </div>
               </div>
             ))}
@@ -268,24 +259,16 @@ export default function StorePage() {
           <div className="py-20 text-center">
             <Package size={56} className="text-gray-200 mx-auto mb-4" />
             <p className="text-gray-500 font-semibold text-lg">
-              {debouncedSearch || category !== "all"
-                ? "No products match your search"
-                : "No products available yet"}
+              {hasFilters ? "No products match your search" : "No products available yet"}
             </p>
             <p className="text-gray-400 text-sm mt-1">
-              {debouncedSearch || category !== "all"
-                ? "Try adjusting your filters"
-                : "Check back soon for new arrivals!"}
+              {hasFilters ? "Try adjusting your filters" : "Check back soon for new arrivals!"}
             </p>
           </div>
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
             {products.map((product) => (
-              <ProductCard
-                key={product._id}
-                product={product}
-                theme={theme}
-              />
+              <ProductCard key={product._id} product={product} theme={theme} />
             ))}
           </div>
         )}
@@ -339,8 +322,7 @@ export default function StorePage() {
               disabled={page === totalPages}
               className="w-10 h-10 rounded-xl border-2 flex items-center justify-center transition-all disabled:opacity-30 disabled:cursor-not-allowed"
               style={{
-                borderColor:
-                  page === totalPages ? "#e5e7eb" : theme.primaryColor,
+                borderColor: page === totalPages ? "#e5e7eb" : theme.primaryColor,
                 color: page === totalPages ? "#9ca3af" : theme.primaryColor,
               }}
             >
@@ -350,15 +332,12 @@ export default function StorePage() {
         )}
       </section>
 
-      <StoreFooter />
+      <FooterLayout />
     </div>
   );
 }
 
-function generatePageNumbers(
-  current: number,
-  total: number
-): (number | "...")[] {
+function generatePageNumbers(current: number, total: number): (number | "...")[] {
   if (total <= 5) return Array.from({ length: total }, (_, i) => i + 1);
 
   const pages: (number | "...")[] = [];

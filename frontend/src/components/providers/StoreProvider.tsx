@@ -7,8 +7,10 @@ export interface StoreData {
   storeName: string;
   subdomain: string;
   theme: string;
+  template: string;
   branding: {
     logo: string | null;
+    storeBanner: string | null;
     tagline: string | null;
     primaryColor: string;
     secondaryColor: string;
@@ -24,11 +26,21 @@ export interface StoreData {
     email: string | null;
     phone: string | null;
   };
+  payment?: {
+    esewa?: {
+      merchantCode?: string | null;
+      isEnabled?: boolean;
+    };
+    khalti?: {
+      isEnabled?: boolean;
+    };
+  };
 }
 
 interface StoreContextValue {
   store: StoreData | null;
   themeColors: Theme;
+  template: string;
   loading: boolean;
   error: boolean;
 }
@@ -36,6 +48,7 @@ interface StoreContextValue {
 const StoreContext = createContext<StoreContextValue>({
   store: null,
   themeColors: THEMES["sunrise"],
+  template: "template1",
   loading: true,
   error: false,
 });
@@ -65,9 +78,10 @@ export default function StoreProvider({
   }, [subdomain]);
 
   const themeColors = THEMES[store?.theme || "sunrise"];
+  const template = store?.template || "template1";
 
   return (
-    <StoreContext.Provider value={{ store, themeColors, loading, error }}>
+    <StoreContext.Provider value={{ store, themeColors, template, loading, error }}>
       {children}
     </StoreContext.Provider>
   );

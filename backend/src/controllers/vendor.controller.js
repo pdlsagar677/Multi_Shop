@@ -11,7 +11,7 @@ const THEMES = require("../config/themes");
 // ─────────────────────────────────────────
 const createVendor = async (req, res, next) => {
   try {
-    const { name, email, storeName, subdomain, plan, phone, theme } = req.body;
+    const { name, email, storeName, subdomain, plan, phone, theme, template } = req.body;
 
     // Validate theme
     const selectedTheme = THEMES[theme] || THEMES["sunrise"];
@@ -55,6 +55,7 @@ const createVendor = async (req, res, next) => {
       subdomain: subdomain.toLowerCase(),
       ownerId: vendorUser._id,
       theme: theme || "sunrise",
+      template: template || "template1",
       contact: { email, phone: phone || null },
       subscription: { plan: plan || "basic", status: "active" },
       createdBy: req.user.userId,
@@ -204,7 +205,7 @@ const getStoreBySubdomain = async (req, res, next) => {
     const vendor = await Vendor.findOne({
       subdomain: req.params.subdomain,
       isActive: true,
-    }).select("storeName subdomain branding contact subscription.plan theme");
+    }).select("storeName subdomain branding contact subscription.plan theme template payment.esewa.merchantCode payment.esewa.isEnabled payment.khalti.isEnabled");
 
     if (!vendor) {
       return res.status(404).json({ success: false, message: "Store not found or inactive" });

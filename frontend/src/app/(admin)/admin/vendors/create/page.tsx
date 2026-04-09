@@ -5,10 +5,12 @@ import Link from "next/link";
 import {
   Store, Mail, User, Phone, Globe,
   ArrowLeft, Check, AlertCircle, Loader2, Palette,
-  Sparkles, Shield, Rocket, Crown, Eye,
+  Sparkles, Shield, Rocket, Crown, Eye, Layout,
+  ExternalLink,
 } from "lucide-react";
 import api from "@/lib/axios";
 import { THEMES } from "@/config/themes";
+import { TEMPLATE_LIST } from "@/config/templates";
 
 const plans = [
   { 
@@ -41,7 +43,7 @@ export default function CreateVendorPage() {
   const router = useRouter();
   const [form, setForm] = useState({
     name: "", email: "", phone: "",
-    storeName: "", subdomain: "", plan: "basic", theme: "sunrise",
+    storeName: "", subdomain: "", plan: "basic", theme: "sunrise", template: "template1",
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -169,7 +171,7 @@ export default function CreateVendorPage() {
           <button 
             onClick={() => { 
               setSuccess(null); 
-              setForm({ name: "", email: "", phone: "", storeName: "", subdomain: "", plan: "basic", theme: "sunrise" }); 
+              setForm({ name: "", email: "", phone: "", storeName: "", subdomain: "", plan: "basic", theme: "sunrise", template: "template1" });
             }}
             className="flex-1 py-4 rounded-xl border-2 border-gray-200 text-gray-700 font-bold hover:border-amber-400 hover:text-amber-600 hover:bg-amber-50 transition-all"
           >
@@ -492,6 +494,120 @@ export default function CreateVendorPage() {
             <p className="text-xs text-gray-400 mt-4 flex items-center gap-1">
               <Sparkles size={12} className="text-amber-400" />
               The selected theme will be applied to the vendor's storefront and cannot be changed by the vendor.
+            </p>
+          </div>
+        </div>
+
+        {/* Template Selection Card */}
+        <div className="bg-white rounded-2xl border border-gray-200 shadow-lg overflow-hidden">
+          <div className="bg-gradient-to-r from-gray-50 to-white px-6 py-4 border-b border-gray-200">
+            <div className="flex items-center gap-2">
+              <Layout size={18} className="text-amber-500" />
+              <h2 className="font-black text-gray-900">Store Layout Template</h2>
+              <a
+                href={`/admin/template-preview?template=${form.template}&theme=${form.theme}`}
+                target="_blank"
+                className="ml-auto text-xs font-medium text-amber-600 hover:text-amber-700 flex items-center gap-1"
+              >
+                <ExternalLink size={14} />
+                Live Preview
+              </a>
+            </div>
+          </div>
+
+          <div className="p-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {TEMPLATE_LIST.map((tmpl) => {
+                const isSelected = form.template === tmpl.key;
+                return (
+                  <button
+                    key={tmpl.key}
+                    type="button"
+                    onClick={() => handleChange("template", tmpl.key)}
+                    className={`relative p-5 rounded-xl border-2 text-left transition-all group
+                      ${isSelected
+                        ? "border-amber-400 bg-gradient-to-br from-amber-50 to-orange-50 shadow-lg scale-[1.02]"
+                        : "border-gray-200 hover:border-amber-300 hover:bg-gray-50"
+                      }`}
+                  >
+                    {/* Template mini preview */}
+                    <div
+                      className="w-full h-20 rounded-lg mb-3 overflow-hidden border"
+                      style={{ borderColor: selectedTheme.borderColor, backgroundColor: selectedTheme.bgColor }}
+                    >
+                      {/* Mini navbar */}
+                      <div className="h-4 flex items-center px-2 gap-1" style={{ backgroundColor: selectedTheme.navBg }}>
+                        <div className="w-2 h-2 rounded" style={{ backgroundColor: selectedTheme.primaryColor }} />
+                        <div className="h-1.5 w-8 rounded-full" style={{ backgroundColor: selectedTheme.navText, opacity: 0.5 }} />
+                      </div>
+                      {/* Mini content varies by template */}
+                      {tmpl.key === "template1" && (
+                        <div className="p-1.5">
+                          <div className="h-5 rounded mb-1" style={{ backgroundColor: selectedTheme.navBg, opacity: 0.3 }} />
+                          <div className="grid grid-cols-4 gap-0.5">
+                            {[...Array(4)].map((_, i) => <div key={i} className="h-4 rounded" style={{ backgroundColor: selectedTheme.secondaryColor }} />)}
+                          </div>
+                        </div>
+                      )}
+                      {tmpl.key === "template2" && (
+                        <div className="p-1.5">
+                          <div className="h-6 rounded mb-1" style={{ backgroundColor: selectedTheme.primaryColor, opacity: 0.2 }} />
+                          <div className="grid grid-cols-3 gap-0.5">
+                            {[...Array(3)].map((_, i) => <div key={i} className="h-4 rounded-lg" style={{ backgroundColor: selectedTheme.secondaryColor }} />)}
+                          </div>
+                        </div>
+                      )}
+                      {tmpl.key === "template3" && (
+                        <div className="p-1.5 flex gap-1">
+                          <div className="w-4 space-y-0.5">
+                            {[...Array(3)].map((_, i) => <div key={i} className="h-2 rounded" style={{ backgroundColor: selectedTheme.borderColor }} />)}
+                          </div>
+                          <div className="flex-1 space-y-0.5">
+                            {[...Array(2)].map((_, i) => <div key={i} className="h-5 rounded" style={{ backgroundColor: selectedTheme.secondaryColor }} />)}
+                          </div>
+                        </div>
+                      )}
+                      {tmpl.key === "template4" && (
+                        <div className="p-1.5">
+                          <div className="flex gap-1 mb-1">
+                            <div className="w-1/2 h-5 rounded" style={{ backgroundColor: selectedTheme.secondaryColor }} />
+                            <div className="w-1/2 h-5 rounded" style={{ backgroundColor: selectedTheme.primaryColor, opacity: 0.3 }} />
+                          </div>
+                          <div className="grid grid-cols-2 gap-0.5">
+                            {[...Array(2)].map((_, i) => <div key={i} className="h-4 rounded" style={{ backgroundColor: selectedTheme.secondaryColor }} />)}
+                          </div>
+                        </div>
+                      )}
+                      {tmpl.key === "template5" && (
+                        <div className="p-1.5">
+                          <div className="h-6 rounded mb-1 flex items-center justify-center" style={{ backgroundColor: selectedTheme.primaryColor, opacity: 0.15 }}>
+                            <div className="flex gap-0.5">
+                              {[...Array(3)].map((_, i) => <div key={i} className="w-1 h-1 rounded-full" style={{ backgroundColor: selectedTheme.primaryColor }} />)}
+                            </div>
+                          </div>
+                          <div className="grid grid-cols-3 gap-0.5">
+                            {[0,1,2].map(i => <div key={i} className="rounded" style={{ height: i === 1 ? 6 : 4, backgroundColor: selectedTheme.secondaryColor }} />)}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    <h3 className="text-sm font-black text-gray-900 mb-1">{tmpl.name}</h3>
+                    <p className="text-xs text-gray-500 leading-relaxed">{tmpl.description}</p>
+
+                    {isSelected && (
+                      <div className="absolute -top-2 -right-2 w-6 h-6 bg-gradient-to-r from-amber-400 to-orange-500 rounded-full flex items-center justify-center shadow-lg">
+                        <Check size={12} className="text-white" strokeWidth={3} />
+                      </div>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+
+            <p className="text-xs text-gray-400 mt-4 flex items-center gap-1">
+              <Layout size={12} className="text-amber-400" />
+              Templates control the layout structure. Combined with the theme above, this creates the vendor's unique store design.
             </p>
           </div>
         </div>

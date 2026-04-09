@@ -4,6 +4,9 @@ const Vendor = require("../models/Vendor.model");
 const {
   getStoreProducts,
   getStoreProductById,
+  getStoreFeaturedProducts,
+  getStoreCategories,
+  searchStoreProducts,
 } = require("../controllers/product.controller");
 
 // ─────────────────────────────────────────
@@ -25,7 +28,10 @@ const resolveVendorBySubdomain = async (req, res, next) => {
 // ─────────────────────────────────────────
 // Public routes — storefront product access
 // ─────────────────────────────────────────
-router.get("/store/:subdomain/products",     resolveVendorBySubdomain, getStoreProducts);
-router.get("/store/:subdomain/products/:id", resolveVendorBySubdomain, getStoreProductById);
+router.get("/store/:subdomain/categories",          resolveVendorBySubdomain, getStoreCategories);
+router.get("/store/:subdomain/products/featured",   resolveVendorBySubdomain, getStoreFeaturedProducts);
+router.get("/store/:subdomain/products/search",     resolveVendorBySubdomain, searchStoreProducts);
+router.get("/store/:subdomain/products",            resolveVendorBySubdomain, getStoreProducts);
+router.get("/store/:subdomain/products/:id",        resolveVendorBySubdomain, getStoreProductById);
 
 module.exports = router;

@@ -10,6 +10,7 @@ import {
 import api from "@/lib/axios";
 import { useStore } from "@/components/providers/StoreProvider";
 import { useCartStore } from "@/store/cartStore";
+import { useAuthStore } from "@/store/authStore";
 import StoreNavbar from "@/components/store/StoreNavbar";
 import StoreFooter from "@/components/store/StoreFooter";
 
@@ -24,6 +25,10 @@ interface Product {
   stock: number;
   sku: string;
   createdAt: string;
+  discountPercent?: number;
+  discountValidUntil?: string | null;
+  isFeatured?: boolean;
+  effectivePrice?: number;
 }
 
 export default function ProductDetailPage() {
@@ -38,10 +43,15 @@ export default function ProductDetailPage() {
   const [selectedImage, setSelectedImage] = useState(0);
   const [quantity, setQuantity] = useState(1);
   const [added, setAdded] = useState(false);
+  const [showLoginPrompt, setShowLoginPrompt] = useState(false);
+  const [addingToCart, setAddingToCart] = useState(false);
 
   const addItem = useCartStore((s) => s.addItem);
   const cartItems = useCartStore((s) => s.items);
-  const inCart = cartItems.find((i) => i._id === id);
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const user = useAuthStore((s) => s.user);
+  const isCustomer = user?.role === "customer";
+  const inCart = cartItems.find((i) => i.productId?._id === id);
 
   useEffect(() => {
     if (!store) return;
@@ -62,27 +72,44 @@ export default function ProductDetailPage() {
     }
   };
 
-  const handleAddToCart = () => {
+  const handleAddToCart = async () => {
     if (!product || !store) return;
-    addItem(
-      {
-        _id: product._id,
-        name: product.name,
-        price: product.price,
-        compareAtPrice: product.compareAtPrice,
-        image: product.images?.[0] || null,
-        stock: product.stock,
-        vendorSubdomain: store.subdomain,
-      },
-      quantity
-    );
-    setAdded(true);
-    setTimeout(() => setAdded(false), 2000);
+
+    if (!isAuthenticated) {
+      setShowLoginPrompt(true);
+      return;
+    }
+
+    if (!isCustomer) return;
+
+    try {
+      setAddingToCart(true);
+      await addItem(product._id, quantity);
+      setAdded(true);
+      setTimeout(() => setAdded(false), 2000);
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || "Failed to add to cart";
+      alert(msg);
+    } finally {
+      setAddingToCart(false);
+    }
   };
 
-  const hasDiscount =
+  const hasPercentDiscount = product?.discountPercent && product.discountPercent > 0;
+  const hasCompareDiscount =
     product?.compareAtPrice && product.compareAtPrice > product.price;
-  const discountPercent = hasDiscount
+  const hasDiscount = hasPercentDiscount || hasCompareDiscount;
+
+  const displayPrice = product?.effectivePrice ?? product?.price ?? 0;
+  const originalPrice = hasPercentDiscount
+    ? product!.price
+    : hasCompareDiscount
+    ? product!.compareAtPrice!
+    : product?.price ?? 0;
+
+  const discountPercent = hasPercentDiscount
+    ? product!.discountPercent!
+    : hasCompareDiscount
     ? Math.round(
         ((product!.compareAtPrice! - product!.price) /
           product!.compareAtPrice!) *
@@ -255,18 +282,18 @@ export default function ProductDetailPage() {
             {/* Price */}
             <div className="flex items-baseline gap-3 mb-6">
               <span className="text-3xl font-black" style={{ color: theme.textColor }}>
-                ${product.price.toFixed(2)}
+                Rs.{displayPrice.toFixed(2)}
               </span>
               {hasDiscount && (
                 <>
                   <span className="text-lg text-gray-400 line-through">
-                    ${product.compareAtPrice!.toFixed(2)}
+                    Rs.{originalPrice.toFixed(2)}
                   </span>
                   <span
                     className="text-sm font-bold px-2.5 py-1 rounded-lg"
                     style={{ backgroundColor: theme.secondaryColor, color: theme.accentColor }}
                   >
-                    Save ${(product.compareAtPrice! - product.price).toFixed(2)}
+                    -{discountPercent}% OFF
                   </span>
                 </>
               )}
@@ -307,8 +334,17 @@ export default function ProductDetailPage() {
               </div>
             )}
 
-            {/* Quantity + Add to Cart */}
-            {product.stock > 0 && (
+            {/* Vendor/Admin notice */}
+            {isAuthenticated && !isCustomer && (
+              <div className="mb-6 p-4 rounded-xl border-2 border-dashed" style={{ borderColor: theme.borderColor }}>
+                <p className="text-sm text-gray-500 font-medium">
+                  {user?.role === "vendor" ? "You are viewing as vendor. Customers can purchase from your store." : "Admin accounts cannot make purchases."}
+                </p>
+              </div>
+            )}
+
+            {/* Quantity + Add to Cart — only for customers or unauthenticated users */}
+            {(!isAuthenticated || isCustomer) && product.stock > 0 && (
               <div className="flex flex-col sm:flex-row gap-3 mb-6">
                 {/* Quantity selector */}
                 <div
@@ -342,10 +378,15 @@ export default function ProductDetailPage() {
                 {/* Add to cart button */}
                 <button
                   onClick={handleAddToCart}
-                  className="flex-1 h-12 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all hover:opacity-90 hover:-translate-y-0.5"
+                  disabled={addingToCart}
+                  className="flex-1 h-12 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all hover:opacity-90 hover:-translate-y-0.5 disabled:opacity-60"
                   style={{ backgroundColor: theme.buttonBg, color: theme.buttonText }}
                 >
-                  {added ? (
+                  {addingToCart ? (
+                    <>
+                      <Loader2 size={18} className="animate-spin" /> Adding...
+                    </>
+                  ) : added ? (
                     <>
                       <Check size={18} /> Added to Cart!
                     </>
@@ -360,7 +401,7 @@ export default function ProductDetailPage() {
             )}
 
             {/* Go to cart link */}
-            {inCart && (
+            {isCustomer && inCart && (
               <Link
                 href="/cart"
                 className="text-sm font-semibold mb-6 inline-flex items-center gap-1 hover:underline"
@@ -395,6 +436,45 @@ export default function ProductDetailPage() {
           </div>
         </div>
       </main>
+
+      {/* Login Prompt Modal */}
+      {showLoginPrompt && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div
+            className="rounded-2xl p-8 max-w-sm w-full text-center shadow-2xl"
+            style={{ backgroundColor: theme.cardBg, border: `1px solid ${theme.borderColor}` }}
+          >
+            <div
+              className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4"
+              style={{ backgroundColor: theme.secondaryColor }}
+            >
+              <ShoppingCart size={28} style={{ color: theme.primaryColor }} />
+            </div>
+            <h3 className="text-lg font-black mb-2" style={{ color: theme.textColor }}>
+              Sign in required
+            </h3>
+            <p className="text-gray-500 text-sm mb-6">
+              Please sign in to add items to your cart
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowLoginPrompt(false)}
+                className="flex-1 py-3 rounded-xl font-bold text-sm border-2 transition-all hover:opacity-80"
+                style={{ borderColor: theme.borderColor, color: theme.textColor }}
+              >
+                Cancel
+              </button>
+              <Link
+                href={`/login?redirect=/product/${id}`}
+                className="flex-1 py-3 rounded-xl font-bold text-sm text-center transition-all hover:opacity-90"
+                style={{ backgroundColor: theme.buttonBg, color: theme.buttonText }}
+              >
+                Sign In
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
 
       <StoreFooter />
     </div>

@@ -1,6 +1,7 @@
 const User = require("../models/User.model");
 const Vendor = require("../models/Vendor.model");
 const Order = require("../models/Order.model");
+const { parsePagination } = require("../utils/pagination");
 
 // ─────────────────────────────────────────
 // @route   GET /api/vendor/customers
@@ -14,7 +15,8 @@ const getVendorCustomers = async (req, res, next) => {
       return res.status(404).json({ success: false, message: "Store not found." });
     }
 
-    const { search, page = 1, limit = 10, status } = req.query;
+    const { page, limit, skip } = parsePagination(req.query);
+    const { search, status } = req.query;
     const query = { vendorId: vendor._id, role: "customer" };
 
     if (search) {
@@ -28,13 +30,12 @@ const getVendorCustomers = async (req, res, next) => {
     if (status === "active") query.isActive = true;
     if (status === "inactive") query.isActive = false;
 
-    const skip = (parseInt(page) - 1) * parseInt(limit);
     const total = await User.countDocuments(query);
     const customers = await User.find(query)
       .select("-password -refreshToken -verificationToken -verificationTokenExpiry")
       .sort({ createdAt: -1 })
       .skip(skip)
-      .limit(parseInt(limit));
+      .limit(limit);
 
     // Get order counts and totals for each customer
     const customerIds = customers.map((c) => c._id);
@@ -73,8 +74,8 @@ const getVendorCustomers = async (req, res, next) => {
       success: true,
       customers: customersWithStats,
       total,
-      page: parseInt(page),
-      pages: Math.ceil(total / parseInt(limit)),
+      page,
+      pages: Math.ceil(total / limit),
     });
   } catch (err) {
     next(err);

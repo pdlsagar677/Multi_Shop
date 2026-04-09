@@ -1,16 +1,19 @@
 "use client";
 import Link from "next/link";
-import { ShoppingCart, ImageIcon } from "lucide-react";
+import { ShoppingCart, ImageIcon, Star } from "lucide-react";
 
 interface Product {
   _id: string;
   name: string;
-  description: string;
+  description?: string;
   price: number;
   compareAtPrice: number | null;
   category: string;
   images: string[];
   stock: number;
+  discountPercent?: number;
+  isFeatured?: boolean;
+  effectivePrice?: number;
 }
 
 interface Theme {
@@ -30,9 +33,21 @@ interface ProductCardProps {
 }
 
 export default function ProductCard({ product, theme }: ProductCardProps) {
-  const hasDiscount =
+  const hasPercentDiscount = product.discountPercent && product.discountPercent > 0;
+  const hasCompareDiscount =
     product.compareAtPrice && product.compareAtPrice > product.price;
-  const discountPercent = hasDiscount
+  const hasDiscount = hasPercentDiscount || hasCompareDiscount;
+
+  const displayPrice = product.effectivePrice ?? product.price;
+  const originalPrice = hasPercentDiscount
+    ? product.price
+    : hasCompareDiscount
+    ? product.compareAtPrice!
+    : product.price;
+
+  const discountPercent = hasPercentDiscount
+    ? product.discountPercent!
+    : hasCompareDiscount
     ? Math.round(
         ((product.compareAtPrice! - product.price) / product.compareAtPrice!) *
           100
@@ -62,18 +77,28 @@ export default function ProductCard({ product, theme }: ProductCardProps) {
           </div>
         )}
 
-        {/* Discount badge */}
-        {hasDiscount && (
-          <span
-            className="absolute top-3 left-3 px-2.5 py-1 rounded-lg text-xs font-bold shadow-sm"
-            style={{
-              backgroundColor: theme.primaryColor,
-              color: theme.buttonText,
-            }}
-          >
-            -{discountPercent}%
-          </span>
-        )}
+        {/* Badges */}
+        <div className="absolute top-3 left-3 flex flex-col gap-1.5">
+          {/* Discount badge */}
+          {hasDiscount && discountPercent > 0 && (
+            <span
+              className="px-2.5 py-1 rounded-lg text-xs font-bold shadow-sm"
+              style={{
+                backgroundColor: theme.primaryColor,
+                color: theme.buttonText,
+              }}
+            >
+              -{discountPercent}%
+            </span>
+          )}
+
+          {/* Featured badge */}
+          {product.isFeatured && (
+            <span className="px-2 py-1 rounded-lg text-xs font-bold shadow-sm bg-yellow-400 text-yellow-900 flex items-center gap-1">
+              <Star size={10} className="fill-yellow-900" /> Featured
+            </span>
+          )}
+        </div>
 
         {/* Out of stock overlay */}
         {product.stock <= 0 && (
@@ -82,6 +107,13 @@ export default function ProductCard({ product, theme }: ProductCardProps) {
               Out of Stock
             </span>
           </div>
+        )}
+
+        {/* Low stock indicator */}
+        {product.stock > 0 && product.stock < 10 && (
+          <span className="absolute bottom-3 left-3 px-2 py-1 rounded-lg text-[10px] font-bold bg-amber-100 text-amber-700">
+            Only {product.stock} left
+          </span>
         )}
 
         {/* Quick action on hover */}
@@ -119,15 +151,12 @@ export default function ProductCard({ product, theme }: ProductCardProps) {
         </h3>
 
         <div className="flex items-baseline gap-2 mt-2.5">
-          <span
-            className="text-lg font-black"
-            style={{ color: theme.textColor }}
-          >
-            ${product.price.toFixed(2)}
+          <span className="text-lg font-black" style={{ color: theme.textColor }}>
+            Rs.{displayPrice.toFixed(2)}
           </span>
-          {hasDiscount && (
+          {hasDiscount && displayPrice < originalPrice && (
             <span className="text-sm text-gray-400 line-through">
-              ${product.compareAtPrice!.toFixed(2)}
+              Rs.{originalPrice.toFixed(2)}
             </span>
           )}
         </div>

@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   ChevronLeft, ShieldCheck, Loader2, MapPin,
-  CreditCard, Package, ImageIcon,
+  CreditCard, Package, ImageIcon, Wallet,
 } from "lucide-react";
 import api from "@/lib/axios";
 import { useAuthStore } from "@/store/authStore";
@@ -40,12 +40,43 @@ export default function CheckoutPage() {
   const { store, themeColors: theme, loading: storeLoading } = useStore();
   const { user, isAuthenticated, isLoading: authLoading } = useAuthStore();
   const items = useCartStore((s) => s.items);
+  const fetchCart = useCartStore((s) => s.fetchCart);
+  const getSubtotal = useCartStore((s) => s.getSubtotal);
 
   const [form, setForm] = useState<ShippingForm>(INITIAL_FORM);
   const [errors, setErrors] = useState<Partial<ShippingForm>>({});
   const [submitting, setSubmitting] = useState(false);
   const [apiError, setApiError] = useState("");
   const formRef = useRef<HTMLFormElement>(null);
+
+  // Payment method selection
+  const [paymentMethod, setPaymentMethod] = useState<"esewa" | "khalti">("esewa");
+
+  // Saved addresses
+  interface SavedAddress {
+    _id: string;
+    street: string;
+    city: string;
+    state: string | null;
+    zipCode: string | null;
+    country: string;
+    phone: string;
+    label: string;
+    isDefault: boolean;
+  }
+  const [savedAddresses, setSavedAddresses] = useState<SavedAddress[]>([]);
+  const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
+  const [useNewAddress, setUseNewAddress] = useState(false);
+
+  // Check which payment methods the vendor has enabled
+  const esewaEnabled = store?.payment?.esewa?.isEnabled || false;
+  const khaltiEnabled = store?.payment?.khalti?.isEnabled || false;
+
+  // Auto-select the first available payment method
+  useEffect(() => {
+    if (esewaEnabled) setPaymentMethod("esewa");
+    else if (khaltiEnabled) setPaymentMethod("khalti");
+  }, [esewaEnabled, khaltiEnabled]);
 
   // Redirect if not logged in
   useEffect(() => {
@@ -54,24 +85,58 @@ export default function CheckoutPage() {
     }
   }, [authLoading, isAuthenticated, router]);
 
+  // Fetch cart and addresses
+  useEffect(() => {
+    if (isAuthenticated) {
+      fetchCart();
+      api.get("/addresses").then(({ data }) => {
+        const addrs = data.addresses || [];
+        setSavedAddresses(addrs);
+        const defaultAddr = addrs.find((a: SavedAddress) => a.isDefault) || addrs[0];
+        if (defaultAddr) {
+          setSelectedAddressId(defaultAddr._id);
+        } else {
+          setUseNewAddress(true);
+        }
+      }).catch((err) => {
+        console.error("Failed to fetch addresses:", err.response?.data?.message || err.message);
+      });
+    }
+  }, [isAuthenticated, fetchCart]);
+
   // Pre-fill from user profile
   useEffect(() => {
     if (user) {
       const [first, ...rest] = (user.name || "").split(" ");
       setForm((f) => ({
         ...f,
-        firstName: first || "",
-        lastName: rest.join(" ") || "",
-        email: user.email || "",
+        firstName: f.firstName || first || "",
+        lastName: f.lastName || rest.join(" ") || "",
+        email: f.email || user.email || "",
+        phone: f.phone || user.phone || "",
       }));
     }
   }, [user]);
 
-  const storeItems = store
-    ? items.filter((i) => i.vendorSubdomain === store.subdomain)
-    : [];
+  // When a saved address is selected, pre-fill phone from that address
+  useEffect(() => {
+    if (selectedAddressId && !useNewAddress) {
+      const addr = savedAddresses.find((a) => a._id === selectedAddressId);
+      if (addr) {
+        setForm((f) => ({
+          ...f,
+          phone: f.phone || addr.phone || "",
+          street: addr.street,
+          city: addr.city,
+          state: addr.state || "",
+          zipCode: addr.zipCode || "",
+        }));
+      }
+    }
+  }, [selectedAddressId, useNewAddress, savedAddresses]);
 
-  const subtotal = storeItems.reduce((s, i) => s + i.price * i.quantity, 0);
+  const storeItems = items;
+  const subtotal = getSubtotal();
 
   // Redirect if cart is empty
   useEffect(() => {
@@ -102,31 +167,56 @@ export default function CheckoutPage() {
   };
 
   const handleSubmit = async () => {
-    if (!validate()) return;
+    // Only validate form fields if using new address
+    if (useNewAddress && !validate()) return;
+    if (!useNewAddress && !selectedAddressId) {
+      setApiError("Please select a shipping address.");
+      return;
+    }
+    // Always validate customer info
+    const custErrors: Partial<ShippingForm> = {};
+    if (!form.firstName.trim()) custErrors.firstName = "Required";
+    if (!form.lastName.trim()) custErrors.lastName = "Required";
+    if (!form.email.trim()) custErrors.email = "Required";
+    else if (!/\S+@\S+\.\S+/.test(form.email)) custErrors.email = "Invalid email";
+    if (!form.phone.trim()) custErrors.phone = "Required";
+    if (Object.keys(custErrors).length > 0) {
+      setErrors(custErrors);
+      return;
+    }
+
     setSubmitting(true);
     setApiError("");
 
     try {
-      // 1. Create order
-      const { data: orderData } = await api.post("/orders", {
+      const orderPayload: any = {
         customer: {
           firstName: form.firstName,
           lastName: form.lastName,
           email: form.email,
           phone: form.phone,
         },
-        shippingAddress: {
+        items: storeItems.map((i) => ({
+          productId: i.productId._id,
+          name: i.productId.name,
+          quantity: i.quantity,
+        })),
+        paymentMethod,
+      };
+
+      if (useNewAddress) {
+        orderPayload.shippingAddress = {
           street: form.street,
           city: form.city,
           state: form.state || null,
           zipCode: form.zipCode || null,
-        },
-        items: storeItems.map((i) => ({
-          productId: i._id,
-          name: i.name,
-          quantity: i.quantity,
-        })),
-      });
+        };
+      } else {
+        orderPayload.addressId = selectedAddressId;
+      }
+
+      // 1. Create order
+      const { data: orderData } = await api.post("/orders", orderPayload);
 
       if (!orderData.success) {
         setApiError(orderData.message || "Failed to create order.");
@@ -136,7 +226,7 @@ export default function CheckoutPage() {
 
       const orderId = orderData.order._id;
 
-      // 2. Initiate eSewa payment
+      // 2. Initiate payment
       const { data: payData } = await api.post(`/orders/${orderId}/pay`);
 
       if (!payData.success) {
@@ -145,21 +235,27 @@ export default function CheckoutPage() {
         return;
       }
 
-      // 3. Create hidden form and submit to eSewa
-      const esewaForm = document.createElement("form");
-      esewaForm.method = "POST";
-      esewaForm.action = payData.esewaUrl;
+      // 3. Handle redirect based on payment method
+      if (payData.paymentMethod === "khalti") {
+        // Khalti: redirect to payment URL
+        window.location.href = payData.paymentUrl;
+      } else {
+        // eSewa: create hidden form and submit
+        const esewaForm = document.createElement("form");
+        esewaForm.method = "POST";
+        esewaForm.action = payData.esewaUrl;
 
-      Object.entries(payData.formData).forEach(([key, value]) => {
-        const input = document.createElement("input");
-        input.type = "hidden";
-        input.name = key;
-        input.value = String(value);
-        esewaForm.appendChild(input);
-      });
+        Object.entries(payData.formData).forEach(([key, value]) => {
+          const input = document.createElement("input");
+          input.type = "hidden";
+          input.name = key;
+          input.value = String(value);
+          esewaForm.appendChild(input);
+        });
 
-      document.body.appendChild(esewaForm);
-      esewaForm.submit();
+        document.body.appendChild(esewaForm);
+        esewaForm.submit();
+      }
     } catch (err: any) {
       setApiError(
         err.response?.data?.message || "Something went wrong. Please try again."
@@ -180,6 +276,8 @@ export default function CheckoutPage() {
   }
 
   if (!isAuthenticated || !user) return null;
+
+  const noPaymentEnabled = !esewaEnabled && !khaltiEnabled;
 
   return (
     <div className="min-h-screen flex flex-col" style={{ backgroundColor: theme.bgColor }}>
@@ -212,13 +310,12 @@ export default function CheckoutPage() {
         )}
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* ── Left: Shipping Form ── */}
-          <div className="lg:col-span-2">
+          {/* Left: Shipping Form */}
+          <div className="lg:col-span-2 space-y-6">
             <div
               className="rounded-2xl overflow-hidden"
               style={{ backgroundColor: theme.cardBg, border: `1px solid ${theme.borderColor}` }}
             >
-              {/* Section header */}
               <div
                 className="px-6 py-4 flex items-center gap-3 border-b"
                 style={{ borderColor: theme.borderColor }}
@@ -234,93 +331,163 @@ export default function CheckoutPage() {
                 </h2>
               </div>
 
-              <form ref={formRef} onSubmit={(e) => e.preventDefault()} className="p-6 space-y-5">
-                {/* Name row */}
+              <div className="p-6 space-y-5">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <InputField
-                    label="First Name"
-                    name="firstName"
-                    value={form.firstName}
-                    onChange={handleChange}
-                    error={errors.firstName}
-                    theme={theme}
-                    required
-                  />
-                  <InputField
-                    label="Last Name"
-                    name="lastName"
-                    value={form.lastName}
-                    onChange={handleChange}
-                    error={errors.lastName}
-                    theme={theme}
-                    required
-                  />
+                  <InputField label="First Name" name="firstName" value={form.firstName} onChange={handleChange} error={errors.firstName} theme={theme} required />
+                  <InputField label="Last Name" name="lastName" value={form.lastName} onChange={handleChange} error={errors.lastName} theme={theme} required />
                 </div>
-
-                {/* Contact row */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <InputField
-                    label="Email"
-                    name="email"
-                    type="email"
-                    value={form.email}
-                    onChange={handleChange}
-                    error={errors.email}
-                    theme={theme}
-                    required
-                  />
-                  <InputField
-                    label="Phone"
-                    name="phone"
-                    value={form.phone}
-                    onChange={handleChange}
-                    error={errors.phone}
-                    theme={theme}
-                    required
-                  />
+                  <InputField label="Email" name="email" type="email" value={form.email} onChange={handleChange} error={errors.email} theme={theme} required />
+                  <InputField label="Phone" name="phone" value={form.phone} onChange={handleChange} error={errors.phone} theme={theme} required />
                 </div>
 
-                {/* Address */}
-                <InputField
-                  label="Street Address"
-                  name="street"
-                  value={form.street}
-                  onChange={handleChange}
-                  error={errors.street}
-                  theme={theme}
-                  required
-                />
+                {savedAddresses.length > 0 && (
+                  <div>
+                    <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">
+                      Shipping Address
+                    </label>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+                      {savedAddresses.map((addr) => (
+                        <button
+                          key={addr._id}
+                          type="button"
+                          onClick={() => { setSelectedAddressId(addr._id); setUseNewAddress(false); }}
+                          className="text-left p-4 rounded-xl border-2 transition-all"
+                          style={{
+                            borderColor: !useNewAddress && selectedAddressId === addr._id ? theme.primaryColor : theme.borderColor,
+                            backgroundColor: !useNewAddress && selectedAddressId === addr._id ? theme.secondaryColor : theme.cardBg,
+                          }}
+                        >
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="text-xs font-bold uppercase px-2 py-0.5 rounded" style={{ backgroundColor: theme.secondaryColor, color: theme.accentColor }}>
+                              {addr.label}
+                            </span>
+                            {addr.isDefault && (
+                              <span className="text-xs font-semibold text-green-600">Default</span>
+                            )}
+                          </div>
+                          <p className="text-sm font-semibold" style={{ color: theme.textColor }}>{addr.street}</p>
+                          <p className="text-xs text-gray-500">{addr.city}{addr.state ? `, ${addr.state}` : ""} {addr.zipCode || ""}</p>
+                          <p className="text-xs text-gray-400 mt-1">{addr.phone}</p>
+                        </button>
+                      ))}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => { setUseNewAddress(true); setSelectedAddressId(null); }}
+                      className="text-sm font-semibold hover:underline"
+                      style={{ color: useNewAddress ? theme.primaryColor : theme.accentColor }}
+                    >
+                      + Use a new address
+                    </button>
+                  </div>
+                )}
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <InputField
-                    label="City"
-                    name="city"
-                    value={form.city}
-                    onChange={handleChange}
-                    error={errors.city}
-                    theme={theme}
-                    required
-                  />
-                  <InputField
-                    label="State / Province"
-                    name="state"
-                    value={form.state}
-                    onChange={handleChange}
-                    theme={theme}
-                  />
-                  <InputField
-                    label="Zip Code"
-                    name="zipCode"
-                    value={form.zipCode}
-                    onChange={handleChange}
-                    theme={theme}
-                  />
-                </div>
-              </form>
+                {(useNewAddress || savedAddresses.length === 0) && (
+                  <div className="space-y-4">
+                    {savedAddresses.length > 0 && (
+                      <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">New Address</p>
+                    )}
+                    <InputField label="Street Address" name="street" value={form.street} onChange={handleChange} error={errors.street} theme={theme} required />
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                      <InputField label="City" name="city" value={form.city} onChange={handleChange} error={errors.city} theme={theme} required />
+                      <InputField label="State / Province" name="state" value={form.state} onChange={handleChange} theme={theme} />
+                      <InputField label="Zip Code" name="zipCode" value={form.zipCode} onChange={handleChange} theme={theme} />
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
+
+            {/* Payment Method Selection */}
+            {!noPaymentEnabled && (
+              <div
+                className="rounded-2xl overflow-hidden"
+                style={{ backgroundColor: theme.cardBg, border: `1px solid ${theme.borderColor}` }}
+              >
+                <div
+                  className="px-6 py-4 flex items-center gap-3 border-b"
+                  style={{ borderColor: theme.borderColor }}
+                >
+                  <div
+                    className="w-8 h-8 rounded-lg flex items-center justify-center"
+                    style={{ backgroundColor: theme.secondaryColor }}
+                  >
+                    <Wallet size={16} style={{ color: theme.primaryColor }} />
+                  </div>
+                  <h2 className="font-black" style={{ color: theme.textColor }}>
+                    Payment Method
+                  </h2>
+                </div>
+
+                <div className="p-6">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {esewaEnabled && (
+                      <button
+                        type="button"
+                        onClick={() => setPaymentMethod("esewa")}
+                        className="flex items-center gap-4 p-4 rounded-xl border-2 transition-all text-left"
+                        style={{
+                          borderColor: paymentMethod === "esewa" ? theme.primaryColor : theme.borderColor,
+                          backgroundColor: paymentMethod === "esewa" ? theme.secondaryColor : theme.cardBg,
+                        }}
+                      >
+                        <div className="w-12 h-12 rounded-xl bg-[#60BB46]/10 flex items-center justify-center shrink-0">
+                          <span className="text-[#60BB46] font-black text-sm">eSewa</span>
+                        </div>
+                        <div>
+                          <p className="text-sm font-bold" style={{ color: theme.textColor }}>eSewa</p>
+                          <p className="text-xs text-gray-400">Pay with your eSewa wallet</p>
+                        </div>
+                        <div className="ml-auto">
+                          <div
+                            className="w-5 h-5 rounded-full border-2 flex items-center justify-center"
+                            style={{ borderColor: paymentMethod === "esewa" ? theme.primaryColor : "#d1d5db" }}
+                          >
+                            {paymentMethod === "esewa" && (
+                              <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: theme.primaryColor }} />
+                            )}
+                          </div>
+                        </div>
+                      </button>
+                    )}
+
+                    {khaltiEnabled && (
+                      <button
+                        type="button"
+                        onClick={() => setPaymentMethod("khalti")}
+                        className="flex items-center gap-4 p-4 rounded-xl border-2 transition-all text-left"
+                        style={{
+                          borderColor: paymentMethod === "khalti" ? theme.primaryColor : theme.borderColor,
+                          backgroundColor: paymentMethod === "khalti" ? theme.secondaryColor : theme.cardBg,
+                        }}
+                      >
+                        <div className="w-12 h-12 rounded-xl bg-[#5C2D91]/10 flex items-center justify-center shrink-0">
+                          <span className="text-[#5C2D91] font-black text-sm">Khalti</span>
+                        </div>
+                        <div>
+                          <p className="text-sm font-bold" style={{ color: theme.textColor }}>Khalti</p>
+                          <p className="text-xs text-gray-400">Pay with your Khalti wallet</p>
+                        </div>
+                        <div className="ml-auto">
+                          <div
+                            className="w-5 h-5 rounded-full border-2 flex items-center justify-center"
+                            style={{ borderColor: paymentMethod === "khalti" ? theme.primaryColor : "#d1d5db" }}
+                          >
+                            {paymentMethod === "khalti" && (
+                              <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: theme.primaryColor }} />
+                            )}
+                          </div>
+                        </div>
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
-          {/* ── Right: Order Review + Pay ── */}
+          {/* Right: Order Review + Pay */}
           <div className="lg:col-span-1">
             <div
               className="rounded-2xl p-6 sticky top-6"
@@ -330,38 +497,41 @@ export default function CheckoutPage() {
                 Order Review
               </h2>
 
-              {/* Item list */}
               <div className="space-y-3 mb-5 max-h-64 overflow-y-auto">
-                {storeItems.map((item) => (
-                  <div key={item._id} className="flex gap-3">
-                    <div
-                      className="w-12 h-12 rounded-lg overflow-hidden shrink-0"
-                      style={{ backgroundColor: theme.secondaryColor }}
-                    >
-                      {item.image ? (
-                        <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center">
-                          <ImageIcon size={16} className="text-gray-300" />
-                        </div>
-                      )}
+                {storeItems.map((item) => {
+                  const product = item.productId;
+                  if (!product) return null;
+                  const price = product.effectivePrice ?? product.price;
+                  return (
+                    <div key={item._id} className="flex gap-3">
+                      <div
+                        className="w-12 h-12 rounded-lg overflow-hidden shrink-0"
+                        style={{ backgroundColor: theme.secondaryColor }}
+                      >
+                        {product.images?.[0] ? (
+                          <img src={product.images[0]} alt={product.name} className="w-full h-full object-cover" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center">
+                            <ImageIcon size={16} className="text-gray-300" />
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold truncate" style={{ color: theme.textColor }}>
+                          {product.name}
+                        </p>
+                        <p className="text-xs text-gray-400">
+                          Qty: {item.quantity} x Rs.{price.toFixed(2)}
+                        </p>
+                      </div>
+                      <span className="text-sm font-bold shrink-0" style={{ color: theme.textColor }}>
+                        Rs.{(price * item.quantity).toFixed(2)}
+                      </span>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold truncate" style={{ color: theme.textColor }}>
-                        {item.name}
-                      </p>
-                      <p className="text-xs text-gray-400">
-                        Qty: {item.quantity} x Rs.{item.price.toFixed(2)}
-                      </p>
-                    </div>
-                    <span className="text-sm font-bold shrink-0" style={{ color: theme.textColor }}>
-                      Rs.{(item.price * item.quantity).toFixed(2)}
-                    </span>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
 
-              {/* Summary */}
               <div
                 className="border-t pt-4 space-y-2 mb-5"
                 style={{ borderColor: theme.borderColor }}
@@ -388,28 +558,36 @@ export default function CheckoutPage() {
                 </span>
               </div>
 
-              {/* Pay button */}
-              <button
-                onClick={handleSubmit}
-                disabled={submitting}
-                className="w-full py-3.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all hover:opacity-90 hover:-translate-y-0.5 disabled:opacity-60 disabled:pointer-events-none"
-                style={{ backgroundColor: theme.buttonBg, color: theme.buttonText }}
-              >
-                {submitting ? (
-                  <>
-                    <Loader2 size={16} className="animate-spin" /> Processing...
-                  </>
-                ) : (
-                  <>
-                    <CreditCard size={16} /> Pay with eSewa
-                  </>
-                )}
-              </button>
+              {noPaymentEnabled ? (
+                <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-700 text-sm font-semibold text-center">
+                  No payment method is configured for this store yet.
+                </div>
+              ) : (
+                <>
+                  <button
+                    onClick={handleSubmit}
+                    disabled={submitting}
+                    className="w-full py-3.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all hover:opacity-90 hover:-translate-y-0.5 disabled:opacity-60 disabled:pointer-events-none"
+                    style={{ backgroundColor: theme.buttonBg, color: theme.buttonText }}
+                  >
+                    {submitting ? (
+                      <>
+                        <Loader2 size={16} className="animate-spin" /> Processing...
+                      </>
+                    ) : (
+                      <>
+                        <CreditCard size={16} />
+                        Pay with {paymentMethod === "khalti" ? "Khalti" : "eSewa"}
+                      </>
+                    )}
+                  </button>
 
-              <div className="flex items-center justify-center gap-2 mt-4 text-xs text-gray-400">
-                <ShieldCheck size={14} />
-                Secure payment via eSewa
-              </div>
+                  <div className="flex items-center justify-center gap-2 mt-4 text-xs text-gray-400">
+                    <ShieldCheck size={14} />
+                    Secure payment via {paymentMethod === "khalti" ? "Khalti" : "eSewa"}
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -420,7 +598,7 @@ export default function CheckoutPage() {
   );
 }
 
-/* ─── Reusable Input Field ─── */
+/* Reusable Input Field */
 
 function InputField({
   label,

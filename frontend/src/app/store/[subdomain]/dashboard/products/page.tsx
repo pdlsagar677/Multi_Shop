@@ -5,7 +5,7 @@ import {
   Plus, Search, Package, CheckCircle, XCircle,
   MoreVertical, Edit, Trash2, Power,
   ChevronLeft, ChevronRight, Filter, Loader2,
-  ImageIcon,
+  ImageIcon, Star, Percent, X, AlertTriangle,
 } from "lucide-react";
 import api from "@/lib/axios";
 import { useStore } from "@/components/providers/StoreProvider";
@@ -21,6 +21,10 @@ interface Product {
   stock: number;
   sku: string;
   isActive: boolean;
+  isFeatured: boolean;
+  discountPercent: number;
+  discountValidUntil: string | null;
+  effectivePrice?: number;
   createdAt: string;
 }
 
@@ -37,6 +41,14 @@ export default function VendorProductsPage() {
   const [toggling, setToggling]       = useState<string | null>(null);
   const [deleting, setDeleting]       = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<Product | null>(null);
+  const [featureToggling, setFeatureToggling] = useState<string | null>(null);
+  const [discountProduct, setDiscountProduct] = useState<Product | null>(null);
+  const [discountForm, setDiscountForm] = useState({ percent: "", validUntil: "" });
+  const [discountSaving, setDiscountSaving] = useState(false);
+  const [filterTab, setFilterTab]     = useState<"all" | "featured" | "onSale" | "lowStock">("all");
+  const [stockEditId, setStockEditId] = useState<string | null>(null);
+  const [stockQty, setStockQty]       = useState("");
+  const [stockSaving, setStockSaving] = useState(false);
 
   useEffect(() => {
     fetchProducts();
@@ -93,6 +105,80 @@ export default function VendorProductsPage() {
     }
   };
 
+  const handleFeatureToggle = async (product: Product) => {
+    try {
+      setFeatureToggling(product._id);
+      const { data } = await api.patch(`/vendor/products/${product._id}/feature`);
+      setProducts(prev =>
+        prev.map(p => p._id === product._id ? { ...p, isFeatured: data.isFeatured } : p)
+      );
+    } catch (err: any) {
+      alert(err.response?.data?.message || "Failed to toggle featured");
+    } finally {
+      setFeatureToggling(null);
+    }
+  };
+
+  const handleDiscountSave = async () => {
+    if (!discountProduct) return;
+    try {
+      setDiscountSaving(true);
+      await api.put(`/vendor/products/${discountProduct._id}`, {
+        discountPercent: Number(discountForm.percent) || 0,
+        discountValidUntil: discountForm.validUntil || null,
+      });
+      setProducts(prev =>
+        prev.map(p => p._id === discountProduct._id ? {
+          ...p,
+          discountPercent: Number(discountForm.percent) || 0,
+          discountValidUntil: discountForm.validUntil || null,
+        } : p)
+      );
+      setDiscountProduct(null);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setDiscountSaving(false);
+    }
+  };
+
+  const handleRemoveDiscount = async () => {
+    if (!discountProduct) return;
+    try {
+      setDiscountSaving(true);
+      await api.put(`/vendor/products/${discountProduct._id}`, {
+        discountPercent: 0,
+        discountValidUntil: null,
+      });
+      setProducts(prev =>
+        prev.map(p => p._id === discountProduct._id ? { ...p, discountPercent: 0, discountValidUntil: null } : p)
+      );
+      setDiscountProduct(null);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setDiscountSaving(false);
+    }
+  };
+
+  const handleAddStock = async (productId: string) => {
+    const qty = parseInt(stockQty);
+    if (!qty || qty < 1) return;
+    try {
+      setStockSaving(true);
+      const { data } = await api.patch(`/vendor/products/${productId}/stock`, { quantity: qty });
+      setProducts(prev =>
+        prev.map(p => p._id === productId ? { ...p, stock: data.stock } : p)
+      );
+      setStockEditId(null);
+      setStockQty("");
+    } catch (err: any) {
+      alert(err.response?.data?.message || "Failed to add stock");
+    } finally {
+      setStockSaving(false);
+    }
+  };
+
   const categories = [...new Set(products.map(p => p.category).filter(Boolean))];
 
   const filtered = products.filter(p => {
@@ -100,7 +186,11 @@ export default function VendorProductsPage() {
       p.name.toLowerCase().includes(search.toLowerCase()) ||
       p.sku?.toLowerCase().includes(search.toLowerCase());
     const matchCategory = filterCategory === "all" || p.category === filterCategory;
-    return matchSearch && matchCategory;
+    let matchTab = true;
+    if (filterTab === "featured") matchTab = p.isFeatured;
+    else if (filterTab === "onSale") matchTab = p.discountPercent > 0;
+    else if (filterTab === "lowStock") matchTab = p.stock <= 5;
+    return matchSearch && matchCategory && matchTab;
   });
 
   const totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE);
@@ -127,6 +217,32 @@ export default function VendorProductsPage() {
           <Plus size={18} />
           Add Product
         </Link>
+      </div>
+
+      {/* Filter Tabs */}
+      <div className="flex gap-2 flex-wrap">
+        {([
+          { key: "all" as const, label: "All", icon: null },
+          { key: "featured" as const, label: "Featured", icon: Star },
+          { key: "onSale" as const, label: "On Sale", icon: Percent },
+          { key: "lowStock" as const, label: "Low Stock", icon: AlertTriangle },
+        ]).map(({ key, label, icon: Icon }) => (
+          <button
+            key={key}
+            onClick={() => { setFilterTab(key); resetPage(); }}
+            className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold border-2 transition-all"
+            style={filterTab === key
+              ? { backgroundColor: theme.primaryColor, color: theme.buttonText, borderColor: theme.primaryColor }
+              : { borderColor: "#e5e7eb", color: "#6b7280" }
+            }
+          >
+            {Icon && <Icon size={14} />}
+            {label}
+            {key === "featured" && <span className="text-xs opacity-70">({products.filter(p => p.isFeatured).length})</span>}
+            {key === "onSale" && <span className="text-xs opacity-70">({products.filter(p => p.discountPercent > 0).length})</span>}
+            {key === "lowStock" && <span className="text-xs opacity-70">({products.filter(p => p.stock <= 5).length})</span>}
+          </button>
+        ))}
       </div>
 
       {/* Filters */}
@@ -182,7 +298,7 @@ export default function VendorProductsPage() {
             <table className="w-full">
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-100">
-                  {["Product", "Price", "Stock", "Category", "Status", ""].map(h => (
+                  {["Product", "Price", "Stock", "Featured", "Discount", "Category", "Status", ""].map(h => (
                     <th key={h} className="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">
                       {h}
                     </th>
@@ -216,17 +332,105 @@ export default function VendorProductsPage() {
 
                     {/* Price */}
                     <td className="px-5 py-4">
-                      <p className="text-sm font-bold text-gray-900">${p.price}</p>
+                      <p className="text-sm font-bold text-gray-900">Rs.{p.price}</p>
+                      {p.discountPercent > 0 && (
+                        <p className="text-xs text-green-600 font-semibold">
+                          Rs.{(p.price * (1 - p.discountPercent / 100)).toFixed(2)}
+                        </p>
+                      )}
                       {p.compareAtPrice && p.compareAtPrice > p.price && (
-                        <p className="text-xs text-gray-400 line-through">${p.compareAtPrice}</p>
+                        <p className="text-xs text-gray-400 line-through">Rs.{p.compareAtPrice}</p>
                       )}
                     </td>
 
                     {/* Stock */}
                     <td className="px-5 py-4">
-                      <span className={`text-sm font-semibold ${p.stock <= 0 ? "text-red-600" : p.stock <= 5 ? "text-yellow-600" : "text-gray-900"}`}>
-                        {p.stock}
-                      </span>
+                      {stockEditId === p._id ? (
+                        <div className="flex items-center gap-1.5">
+                          <input
+                            type="number"
+                            min="1"
+                            value={stockQty}
+                            onChange={e => setStockQty(e.target.value)}
+                            onKeyDown={e => e.key === "Enter" && handleAddStock(p._id)}
+                            placeholder="Qty"
+                            autoFocus
+                            className="w-16 px-2 py-1.5 text-sm font-semibold text-gray-900 border-2 rounded-lg outline-none text-center"
+                            style={{ borderColor: theme.primaryColor }}
+                          />
+                          <button
+                            onClick={() => handleAddStock(p._id)}
+                            disabled={stockSaving || !stockQty || parseInt(stockQty) < 1}
+                            className="w-7 h-7 rounded-lg flex items-center justify-center text-white text-xs font-bold disabled:opacity-40 transition-all"
+                            style={{ backgroundColor: theme.primaryColor }}
+                          >
+                            {stockSaving ? <Loader2 size={12} className="animate-spin" /> : <Plus size={14} />}
+                          </button>
+                          <button
+                            onClick={() => { setStockEditId(null); setStockQty(""); }}
+                            className="w-7 h-7 rounded-lg flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-all"
+                          >
+                            <X size={14} />
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <span className={`text-sm font-semibold ${p.stock <= 0 ? "text-red-600" : p.stock <= 5 ? "text-yellow-600" : "text-gray-900"}`}>
+                            {p.stock}
+                          </span>
+                          {p.stock <= 0 && (
+                            <span className="text-[10px] font-bold text-red-500 bg-red-50 px-1.5 py-0.5 rounded">OUT</span>
+                          )}
+                          {p.stock > 0 && p.stock <= 5 && (
+                            <span className="text-[10px] font-bold text-yellow-600 bg-yellow-50 px-1.5 py-0.5 rounded">LOW</span>
+                          )}
+                          <button
+                            onClick={() => { setStockEditId(p._id); setStockQty(""); }}
+                            className="w-6 h-6 rounded-md flex items-center justify-center text-gray-400 hover:text-white hover:bg-green-500 transition-all opacity-0 group-hover:opacity-100"
+                            title="Add stock"
+                          >
+                            <Plus size={13} />
+                          </button>
+                        </div>
+                      )}
+                    </td>
+
+                    {/* Featured */}
+                    <td className="px-5 py-4">
+                      <button
+                        onClick={() => handleFeatureToggle(p)}
+                        disabled={featureToggling === p._id}
+                        className="transition-all hover:scale-110 disabled:opacity-50"
+                        title={p.isFeatured ? "Remove from featured" : "Mark as featured"}
+                      >
+                        {featureToggling === p._id ? (
+                          <Loader2 size={18} className="animate-spin text-gray-400" />
+                        ) : (
+                          <Star
+                            size={18}
+                            className={p.isFeatured ? "fill-yellow-400 text-yellow-400" : "text-gray-300"}
+                          />
+                        )}
+                      </button>
+                    </td>
+
+                    {/* Discount */}
+                    <td className="px-5 py-4">
+                      {p.discountPercent > 0 ? (
+                        <button
+                          onClick={() => { setDiscountProduct(p); setDiscountForm({ percent: String(p.discountPercent), validUntil: p.discountValidUntil ? p.discountValidUntil.slice(0, 16) : "" }); }}
+                          className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-bold bg-green-100 text-green-700 hover:bg-green-200 transition-colors"
+                        >
+                          <Percent size={12} /> {p.discountPercent}%
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => { setDiscountProduct(p); setDiscountForm({ percent: "", validUntil: "" }); }}
+                          className="text-xs font-semibold text-gray-400 hover:text-gray-600 transition-colors"
+                        >
+                          + Set
+                        </button>
+                      )}
                     </td>
 
                     {/* Category */}
@@ -334,6 +538,87 @@ export default function VendorProductsPage() {
           </div>
         )}
       </div>
+
+      {/* Discount Modal */}
+      {discountProduct && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-md">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-black text-gray-900">Set Discount</h3>
+              <button onClick={() => setDiscountProduct(null)} className="text-gray-400 hover:text-gray-600">
+                <X size={20} />
+              </button>
+            </div>
+            <p className="text-sm text-gray-500 mb-4">
+              Product: <span className="font-semibold text-gray-700">{discountProduct.name}</span>
+              <br />
+              Original Price: <span className="font-semibold">Rs.{discountProduct.price.toFixed(2)}</span>
+            </p>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">
+                  Discount Percentage
+                </label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={discountForm.percent}
+                    onChange={e => setDiscountForm(f => ({ ...f, percent: e.target.value }))}
+                    placeholder="0"
+                    className="w-full px-4 py-3 rounded-xl text-sm font-medium outline-none border-2 border-gray-200 focus:border-blue-500 transition-colors"
+                  />
+                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold">%</span>
+                </div>
+                {discountForm.percent && Number(discountForm.percent) > 0 && (
+                  <p className="text-sm text-green-600 font-semibold mt-2">
+                    Sale Price: Rs.{(discountProduct.price * (1 - Number(discountForm.percent) / 100)).toFixed(2)}
+                    <span className="text-gray-400 ml-2 line-through">Rs.{discountProduct.price.toFixed(2)}</span>
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">
+                  Expires On (Optional)
+                </label>
+                <input
+                  type="datetime-local"
+                  value={discountForm.validUntil}
+                  onChange={e => setDiscountForm(f => ({ ...f, validUntil: e.target.value }))}
+                  className="w-full px-4 py-3 rounded-xl text-sm font-medium outline-none border-2 border-gray-200 focus:border-blue-500 transition-colors"
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-3 mt-6">
+              {discountProduct.discountPercent > 0 && (
+                <button
+                  onClick={handleRemoveDiscount}
+                  disabled={discountSaving}
+                  className="flex-1 py-3 rounded-xl border-2 border-red-200 text-red-600 font-bold hover:bg-red-50 transition-all disabled:opacity-60"
+                >
+                  Remove
+                </button>
+              )}
+              <button
+                onClick={handleDiscountSave}
+                disabled={discountSaving || !discountForm.percent || Number(discountForm.percent) <= 0}
+                className="flex-1 py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all disabled:opacity-60"
+                style={{ backgroundColor: theme.primaryColor, color: theme.buttonText }}
+              >
+                {discountSaving ? (
+                  <><Loader2 size={16} className="animate-spin" /> Saving...</>
+                ) : (
+                  "Apply Discount"
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Delete Confirmation Modal */}
       {confirmDelete && (

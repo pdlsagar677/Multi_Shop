@@ -1,3 +1,4 @@
+const crypto = require("crypto");
 const User = require("../models/User.model");
 const Vendor = require("../models/Vendor.model");
 const bcrypt = require("bcryptjs");
@@ -8,7 +9,7 @@ const {
   setTokenCookies,
   generateOTP,
 } = require("../utils/generateTokens");
-const { sendVerificationEmail } = require("../utils/sendEmail");
+const { sendVerificationEmail, sendPasswordResetEmail } = require("../utils/sendEmail");
 
 // ─────────────────────────────────────────
 // @route   POST /api/auth/register
@@ -174,22 +175,18 @@ const login = async (req, res, next) => {
 
     // ── Domain-context login enforcement ──
     if (req.vendor) {
-      // On a subdomain — reject superadmin
       if (user.role === "superadmin") {
-        return res.status(403).json({ success: false, message: "Invalid credintials for this vendor." });
+        return res.status(401).json({ success: false, message: "Invalid credentials." });
       }
-      // Vendor must own this store
       if (user.role === "vendor" && String(req.vendor.ownerId) !== String(user._id)) {
-        return res.status(403).json({ success: false, message: "Invalid credintials for this vendor " });
+        return res.status(401).json({ success: false, message: "Invalid credentials." });
       }
-      // Customer must belong to this vendor
       if (user.role === "customer" && String(user.vendorId) !== String(req.vendor._id)) {
-        return res.status(403).json({ success: false, message: "Invalid credintials for this vendor " });
+        return res.status(401).json({ success: false, message: "Invalid credentials." });
       }
     } else {
-      // Main domain — only superadmin allowed
       if (user.role !== "superadmin") {
-        return res.status(403).json({ success: false, message: "INvalid credintials." });
+        return res.status(401).json({ success: false, message: "Invalid credentials." });
       }
     }
 
@@ -374,11 +371,17 @@ const logout = async (req, res, next) => {
 // ─────────────────────────────────────────
 const changePassword = async (req, res, next) => {
   try {
-    const { userId, newPassword } = req.body;
+    const { userId, oldPassword, newPassword } = req.body;
 
-    const user = await User.findById(userId);
+    const user = await User.findById(userId).select("+password");
     if (!user) {
-      return res.status(404).json({ success: false, message: "User not found" });
+      return res.status(401).json({ success: false, message: "Invalid credentials." });
+    }
+
+    // Verify old password before allowing change
+    const isMatch = await user.comparePassword(oldPassword);
+    if (!isMatch) {
+      return res.status(401).json({ success: false, message: "Incorrect current password." });
     }
 
     const hashedPassword = await bcrypt.hash(newPassword, 12);
@@ -496,6 +499,102 @@ const deleteAccount = async (req, res, next) => {
   }
 };
 
+// ─────────────────────────────────────────
+// @route   POST /api/auth/forgot-password
+// @access  Public
+// ─────────────────────────────────────────
+const forgotPassword = async (req, res, next) => {
+  try {
+    const { email } = req.body;
+
+    const user = await User.findOne({ email });
+
+    // Always return success to prevent email enumeration
+    if (!user) {
+      return res.status(200).json({
+        success: true,
+        message: "If an account with that email exists, a reset link has been sent.",
+      });
+    }
+
+    // Generate reset token
+    const resetToken = crypto.randomBytes(32).toString("hex");
+    const hashedToken = crypto.createHash("sha256").update(resetToken).digest("hex");
+
+    user.resetPasswordToken = hashedToken;
+    user.resetPasswordExpiry = new Date(Date.now() + 30 * 60 * 1000); // 30 minutes
+    await user.save();
+
+    // Build reset URL based on domain context
+    const protocol = process.env.NODE_ENV === "production" ? "https" : "http";
+    let resetUrl;
+    if (req.vendor) {
+      const baseDomain = process.env.CLIENT_BASE_DOMAIN || "localhost:3000";
+      resetUrl = `${protocol}://${req.vendor.subdomain}.${baseDomain}/reset-password?token=${resetToken}`;
+    } else {
+      resetUrl = `${process.env.CLIENT_URL || "http://localhost:3000"}/reset-password?token=${resetToken}`;
+    }
+
+    // Look up vendor for branding
+    let vendor = req.vendor;
+    if (!vendor && user.vendorId) {
+      vendor = await Vendor.findById(user.vendorId);
+    }
+
+    await sendPasswordResetEmail({
+      name: user.name,
+      email: user.email,
+      resetUrl,
+      vendor,
+    });
+
+    res.status(200).json({
+      success: true,
+      message: "If an account with that email exists, a reset link has been sent.",
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ─────────────────────────────────────────
+// @route   POST /api/auth/reset-password
+// @access  Public
+// ─────────────────────────────────────────
+const resetPassword = async (req, res, next) => {
+  try {
+    const { token, newPassword } = req.body;
+
+    // Hash the token to match what's stored in DB
+    const hashedToken = crypto.createHash("sha256").update(token).digest("hex");
+
+    const user = await User.findOne({
+      resetPasswordToken: hashedToken,
+      resetPasswordExpiry: { $gt: new Date() },
+    }).select("+resetPasswordToken +resetPasswordExpiry");
+
+    if (!user) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid or expired reset token. Please request a new reset link.",
+      });
+    }
+
+    // Update password and clear reset fields
+    user.password = newPassword; // pre-save hook will hash it
+    user.resetPasswordToken = null;
+    user.resetPasswordExpiry = null;
+    await user.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Password reset successful. You can now log in with your new password.",
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
 module.exports = {
   register,
   verifyOTP,
@@ -504,6 +603,8 @@ module.exports = {
   refreshAccessToken,
   logout,
   changePassword,
+  forgotPassword,
+  resetPassword,
   getMe,
   updateProfile,
   deleteAccount,

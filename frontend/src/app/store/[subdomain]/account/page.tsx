@@ -6,10 +6,12 @@ import {
   User, Mail, Phone, Calendar, ShoppingBag, LogOut,
   ChevronRight, Package, Clock, CheckCircle, Truck,
   XCircle, Loader2, Edit3, ShieldCheck, Save, X,
-  Trash2, AlertTriangle, Eye, EyeOff,
+  Trash2, AlertTriangle, Eye, EyeOff, MapPin, Plus,
+  Home, Briefcase, MoreHorizontal,
 } from "lucide-react";
 import api from "@/lib/axios";
 import { useAuthStore } from "@/store/authStore";
+import { useAddressStore, Address } from "@/store/addressStore";
 import { useStore } from "@/components/providers/StoreProvider";
 import StoreNavbar from "@/components/store/StoreNavbar";
 import StoreFooter from "@/components/store/StoreFooter";
@@ -43,7 +45,7 @@ const statusConfig: Record<string, { label: string; icon: any; color: string; bg
   cancelled: { label: "Cancelled", icon: XCircle,     color: "#ef4444", bg: "#fef2f2" },
 };
 
-type Tab = "profile" | "orders";
+type Tab = "profile" | "orders" | "addresses";
 
 export default function AccountPage() {
   const router = useRouter();
@@ -159,6 +161,7 @@ export default function AccountPage() {
             [
               { key: "profile", label: "My Profile", icon: User },
               { key: "orders", label: "My Orders", icon: ShoppingBag },
+              { key: "addresses", label: "Addresses", icon: MapPin },
             ] as const
           ).map(({ key, label, icon: Icon }) => (
             <button
@@ -191,7 +194,7 @@ export default function AccountPage() {
             onProfileUpdate={(updated: UserProfile) => setProfile(updated)}
             onAccountDeleted={() => { clearAuth(); router.push("/login"); }}
           />
-        ) : (
+        ) : tab === "orders" ? (
           <OrdersTab
             orders={orders}
             loading={loadingOrders}
@@ -202,6 +205,8 @@ export default function AccountPage() {
               );
             }}
           />
+        ) : (
+          <AddressesTab theme={theme} />
         )}
 
         {/* Mobile logout */}
@@ -799,6 +804,200 @@ function OrdersTab({
           </div>
         );
       })}
+    </div>
+  );
+}
+
+/* Addresses Tab */
+
+function AddressesTab({ theme }: { theme: any }) {
+  const { addresses, loading, fetchAddresses, addAddress, updateAddress, deleteAddress } = useAddressStore();
+  const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [form, setForm] = useState<{ street: string; city: string; state: string; zipCode: string; phone: string; label: "home" | "work" | "other"; country: string }>({ street: "", city: "", state: "", zipCode: "", phone: "", label: "home", country: "Nepal" });
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    fetchAddresses();
+  }, [fetchAddresses]);
+
+  const labelIcons: Record<string, any> = { home: Home, work: Briefcase, other: MoreHorizontal };
+
+  const resetForm = () => {
+    setForm({ street: "", city: "", state: "", zipCode: "", phone: "", label: "home", country: "Nepal" });
+    setShowForm(false);
+    setEditingId(null);
+    setError("");
+  };
+
+  const startEdit = (addr: Address) => {
+    setForm({
+      street: addr.street,
+      city: addr.city,
+      state: addr.state || "",
+      zipCode: addr.zipCode || "",
+      phone: addr.phone,
+      label: addr.label,
+      country: addr.country || "Nepal",
+    });
+    setEditingId(addr._id);
+    setShowForm(true);
+  };
+
+  const handleSave = async () => {
+    if (!form.street.trim() || !form.city.trim() || !form.phone.trim()) {
+      setError("Street, city, and phone are required");
+      return;
+    }
+    try {
+      setSaving(true);
+      setError("");
+      if (editingId) {
+        await updateAddress(editingId, form);
+      } else {
+        await addAddress(form);
+      }
+      resetForm();
+      fetchAddresses();
+    } catch (err: any) {
+      setError(err.response?.data?.message || "Failed to save address");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    try {
+      await deleteAddress(id);
+      fetchAddresses();
+    } catch (err: any) {
+      alert(err.response?.data?.message || "Failed to delete");
+    }
+  };
+
+  if (loading && addresses.length === 0) {
+    return (
+      <div className="space-y-4">
+        {[...Array(2)].map((_, i) => (
+          <div key={i} className="h-24 rounded-2xl animate-pulse" style={{ backgroundColor: theme.secondaryColor }} />
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Address Cards */}
+      {addresses.map((addr) => {
+        const LabelIcon = labelIcons[addr.label] || MapPin;
+        return (
+          <div
+            key={addr._id}
+            className="rounded-2xl p-5"
+            style={{ backgroundColor: theme.cardBg, border: `1px solid ${addr.isDefault ? theme.primaryColor : theme.borderColor}` }}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-start gap-3">
+                <div
+                  className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 mt-0.5"
+                  style={{ backgroundColor: theme.secondaryColor }}
+                >
+                  <LabelIcon size={18} style={{ color: theme.primaryColor }} />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-xs font-bold uppercase px-2 py-0.5 rounded" style={{ backgroundColor: theme.secondaryColor, color: theme.accentColor }}>
+                      {addr.label}
+                    </span>
+                    {addr.isDefault && (
+                      <span className="text-xs font-semibold text-green-600 bg-green-50 px-2 py-0.5 rounded">Default</span>
+                    )}
+                  </div>
+                  <p className="text-sm font-semibold" style={{ color: theme.textColor }}>{addr.street}</p>
+                  <p className="text-xs text-gray-500">{addr.city}{addr.state ? `, ${addr.state}` : ""} {addr.zipCode || ""}</p>
+                  <p className="text-xs text-gray-400 mt-1">{addr.phone}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-1 shrink-0">
+                <button
+                  onClick={() => startEdit(addr)}
+                  className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-blue-500 hover:bg-blue-50 transition-all"
+                >
+                  <Edit3 size={14} />
+                </button>
+                <button
+                  onClick={() => handleDelete(addr._id)}
+                  className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-red-50 transition-all"
+                >
+                  <Trash2 size={14} />
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })}
+
+      {/* Add / Edit Form */}
+      {showForm ? (
+        <div className="rounded-2xl p-5" style={{ backgroundColor: theme.cardBg, border: `1px solid ${theme.borderColor}` }}>
+          <h3 className="font-bold mb-4" style={{ color: theme.textColor }}>
+            {editingId ? "Edit Address" : "Add New Address"}
+          </h3>
+          {error && <p className="text-sm text-red-500 font-medium mb-3">{error}</p>}
+          <div className="space-y-3">
+            <div className="flex gap-2">
+              {(["home", "work", "other"] as const).map((l) => (
+                <button
+                  key={l}
+                  onClick={() => setForm({ ...form, label: l })}
+                  className="px-3 py-1.5 rounded-lg text-xs font-bold capitalize border-2 transition-all"
+                  style={form.label === l
+                    ? { borderColor: theme.primaryColor, backgroundColor: theme.secondaryColor, color: theme.accentColor }
+                    : { borderColor: "#e5e7eb", color: "#6b7280" }
+                  }
+                >
+                  {l}
+                </button>
+              ))}
+            </div>
+            <input value={form.street} onChange={e => setForm({ ...form, street: e.target.value })} placeholder="Street address *" className="w-full px-4 py-3 rounded-xl text-sm font-medium border-2 outline-none transition-colors text-gray-900 bg-white placeholder-gray-400" style={{ borderColor: theme.borderColor }} onFocus={e => e.target.style.borderColor = theme.primaryColor} onBlur={e => e.target.style.borderColor = theme.borderColor} />
+            <div className="grid grid-cols-2 gap-3">
+              <input value={form.city} onChange={e => setForm({ ...form, city: e.target.value })} placeholder="City *" className="px-4 py-3 rounded-xl text-sm font-medium border-2 outline-none transition-colors text-gray-900 bg-white placeholder-gray-400" style={{ borderColor: theme.borderColor }} onFocus={e => e.target.style.borderColor = theme.primaryColor} onBlur={e => e.target.style.borderColor = theme.borderColor} />
+              <input value={form.state} onChange={e => setForm({ ...form, state: e.target.value })} placeholder="State" className="px-4 py-3 rounded-xl text-sm font-medium border-2 outline-none transition-colors text-gray-900 bg-white placeholder-gray-400" style={{ borderColor: theme.borderColor }} onFocus={e => e.target.style.borderColor = theme.primaryColor} onBlur={e => e.target.style.borderColor = theme.borderColor} />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <input value={form.zipCode} onChange={e => setForm({ ...form, zipCode: e.target.value })} placeholder="Zip Code" className="px-4 py-3 rounded-xl text-sm font-medium border-2 outline-none transition-colors text-gray-900 bg-white placeholder-gray-400" style={{ borderColor: theme.borderColor }} onFocus={e => e.target.style.borderColor = theme.primaryColor} onBlur={e => e.target.style.borderColor = theme.borderColor} />
+              <input value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} placeholder="Phone *" className="px-4 py-3 rounded-xl text-sm font-medium border-2 outline-none transition-colors text-gray-900 bg-white placeholder-gray-400" style={{ borderColor: theme.borderColor }} onFocus={e => e.target.style.borderColor = theme.primaryColor} onBlur={e => e.target.style.borderColor = theme.borderColor} />
+            </div>
+            <div className="flex gap-3 pt-2">
+              <button onClick={resetForm} className="flex-1 py-3 rounded-xl border-2 font-bold text-sm transition-all" style={{ borderColor: theme.borderColor, color: theme.textColor }}>
+                Cancel
+              </button>
+              <button onClick={handleSave} disabled={saving} className="flex-1 py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all disabled:opacity-60" style={{ backgroundColor: theme.primaryColor, color: theme.buttonText }}>
+                {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+                {editingId ? "Update" : "Save"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : (
+        addresses.length < 3 && (
+          <button
+            onClick={() => setShowForm(true)}
+            className="w-full py-4 rounded-2xl border-2 border-dashed font-bold text-sm flex items-center justify-center gap-2 transition-all hover:opacity-80"
+            style={{ borderColor: theme.borderColor, color: theme.accentColor }}
+          >
+            <Plus size={18} /> Add New Address
+          </button>
+        )
+      )}
+
+      {addresses.length >= 3 && !showForm && (
+        <p className="text-xs text-center text-gray-400 font-medium">
+          Maximum 3 addresses allowed per store
+        </p>
+      )}
     </div>
   );
 }

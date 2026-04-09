@@ -59,7 +59,7 @@ const orderSchema = new mongoose.Schema(
     payment: {
       method: {
         type: String,
-        enum: ["esewa", "cod"],
+        enum: ["esewa", "khalti", "cod"],
         default: "esewa",
       },
       status: {
@@ -69,6 +69,8 @@ const orderSchema = new mongoose.Schema(
       },
       transactionId: { type: String, default: null },
       esewaRefId:    { type: String, default: null },
+      khaltiPidx:    { type: String, default: null },
+      khaltiTxnId:   { type: String, default: null },
       paidAt:        { type: Date, default: null },
     },
 
@@ -105,5 +107,7 @@ orderSchema.index({ vendorId: 1, createdAt: -1 });
 orderSchema.index({ customerId: 1, createdAt: -1 });
 orderSchema.index({ vendorId: 1, orderNumber: 1 }, { unique: true });
 orderSchema.index({ "payment.transactionId": 1 });
+orderSchema.index({ vendorId: 1, status: 1, createdAt: -1 });
+orderSchema.index({ "payment.khaltiPidx": 1 });
 
 module.exports = mongoose.model("Order", orderSchema);

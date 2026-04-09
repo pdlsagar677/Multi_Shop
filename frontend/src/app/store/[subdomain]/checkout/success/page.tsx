@@ -12,8 +12,7 @@ import StoreFooter from "@/components/store/StoreFooter";
 export default function CheckoutSuccessPage() {
   const searchParams = useSearchParams();
   const { store, themeColors: theme, loading: storeLoading } = useStore();
-  const items = useCartStore((s) => s.items);
-  const removeItem = useCartStore((s) => s.removeItem);
+  const fetchCart = useCartStore((s) => s.fetchCart);
 
   const [verifying, setVerifying] = useState(true);
   const [verified, setVerified] = useState(false);
@@ -21,29 +20,60 @@ export default function CheckoutSuccessPage() {
   const [errorMsg, setErrorMsg] = useState("");
 
   useEffect(() => {
-    const data = searchParams.get("data");
-    if (!data) {
-      setVerifying(false);
-      setErrorMsg("No payment data received.");
-      return;
-    }
+    const method = searchParams.get("method");
 
-    verifyPayment(data);
+    if (method === "khalti") {
+      // Khalti redirects with ?pidx=xxx&status=xxx&purchase_order_id=xxx
+      const pidx = searchParams.get("pidx");
+      const purchaseOrderId = searchParams.get("purchase_order_id");
+      if (!pidx) {
+        setVerifying(false);
+        setErrorMsg("No payment data received.");
+        return;
+      }
+      verifyKhaltiPayment(pidx, purchaseOrderId || "");
+    } else {
+      // eSewa redirects with ?data=xxx (base64)
+      const data = searchParams.get("data");
+      if (!data) {
+        setVerifying(false);
+        setErrorMsg("No payment data received.");
+        return;
+      }
+      verifyEsewaPayment(data);
+    }
   }, [searchParams]);
 
-  const verifyPayment = async (data: string) => {
+  const verifyEsewaPayment = async (data: string) => {
     try {
       const { data: res } = await api.get(`/orders/payment/verify?data=${encodeURIComponent(data)}`);
 
       if (res.success) {
         setVerified(true);
         setOrderNumber(res.order?.orderNumber || "");
+        fetchCart();
+      } else {
+        setErrorMsg(res.message || "Payment verification failed.");
+      }
+    } catch (err: any) {
+      setErrorMsg(
+        err.response?.data?.message || "Payment verification failed. Please contact support."
+      );
+    } finally {
+      setVerifying(false);
+    }
+  };
 
-        // Clear vendor's items from cart
-        if (store) {
-          const vendorItems = items.filter((i) => i.vendorSubdomain === store.subdomain);
-          vendorItems.forEach((i) => removeItem(i._id));
-        }
+  const verifyKhaltiPayment = async (pidx: string, purchaseOrderId: string) => {
+    try {
+      const { data: res } = await api.get(
+        `/orders/payment/khalti-verify?pidx=${encodeURIComponent(pidx)}&purchase_order_id=${encodeURIComponent(purchaseOrderId)}`
+      );
+
+      if (res.success) {
+        setVerified(true);
+        setOrderNumber(res.order?.orderNumber || "");
+        fetchCart();
       } else {
         setErrorMsg(res.message || "Payment verification failed.");
       }
@@ -87,7 +117,7 @@ export default function CheckoutSuccessPage() {
                 Verifying Payment
               </h1>
               <p className="text-gray-500 text-sm">
-                Please wait while we confirm your payment with eSewa...
+                Please wait while we confirm your payment...
               </p>
             </>
           ) : verified ? (

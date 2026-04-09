@@ -6,10 +6,22 @@ const helmet = require("helmet");
 const morgan = require("morgan");
 const compression = require("compression");
 const rateLimit = require("express-rate-limit");
+const mongoose = require("mongoose");
 const connectDB = require("./config/mongodb");
 const {resolveTenant} = require("./middleware/tenant.middleware");
+const logger = require("./utils/logger");
 // Load env variables first before anything else
 dotenv.config();
+
+// ── Startup security checks ──
+if (!process.env.JWT_ACCESS_SECRET || process.env.JWT_ACCESS_SECRET.length < 32) {
+  console.error("FATAL: JWT_ACCESS_SECRET must be at least 32 characters. Generate with: node -e \"console.log(require('crypto').randomBytes(64).toString('hex'))\"");
+  process.exit(1);
+}
+if (!process.env.JWT_REFRESH_SECRET || process.env.JWT_REFRESH_SECRET.length < 32) {
+  console.error("FATAL: JWT_REFRESH_SECRET must be at least 32 characters.");
+  process.exit(1);
+}
 
 // Connect to MongoDB
 connectDB();
@@ -24,6 +36,7 @@ const app = express();
 app.use(
   helmet({
     crossOriginResourcePolicy: { policy: "cross-origin" },
+    frameguard: { action: "deny" },
   })
 );
 
@@ -48,10 +61,10 @@ app.use(
   })
 );
 
-// Rate limiting — max 100 requests per 15 mins per IP
+// Rate limiting — max 1000 requests per 15 mins per IP (high for dev/testing)
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 100,
+  max: 1000,
   message: { message: "Too many requests, please try again later." },
   standardHeaders: true,
   legacyHeaders: false,
@@ -85,9 +98,11 @@ app.use(cookieParser());
 // Compress all responses
 app.use(compression());
 
-// HTTP request logger (only in development)
+// HTTP request logger
 if (process.env.NODE_ENV === "development") {
   app.use(morgan("dev"));
+} else {
+  app.use(morgan("combined"));
 }
 app.use(resolveTenant);
 
@@ -98,10 +113,12 @@ app.use(resolveTenant);
 
 // Health check — to verify server is running
 app.get("/api/health", (req, res) => {
+  const dbStates = ["disconnected", "connected", "connecting", "disconnecting"];
   res.status(200).json({
     status: "ok",
-    message: "Server is running ",
     environment: process.env.NODE_ENV,
+    dbStatus: dbStates[mongoose.connection.readyState] || "unknown",
+    uptime: Math.floor(process.uptime()),
     timestamp: new Date().toISOString(),
   });
 });
@@ -119,6 +136,12 @@ app.use("/api/vendor", require("./routes/vendorSelf.routes"));
 app.use("/api/vendor/products", require("./routes/product.routes"));
 app.use("/api", require("./routes/storeProduct.routes"));
 
+// Address routes
+app.use("/api/addresses", require("./routes/address.routes"));
+
+// Cart routes
+app.use("/api/cart", require("./routes/cart.routes"));
+
 // Order routes
 app.use("/api/orders", require("./routes/order.routes"));
 app.use("/api/customer", require("./routes/customerOrder.routes"));
@@ -134,21 +157,39 @@ app.use((req, res) => {
 // GLOBAL ERROR HANDLER — always keep this last
 // ============================================
 app.use((err, req, res, next) => {
-  console.error("❌ Error:", err.message);
+  logger.error(err.message, { stack: err.stack });
 
   const statusCode = err.statusCode || 500;
   res.status(statusCode).json({
     success: false,
     message: err.message || "Internal Server Error",
-    // only show stack trace in development
     ...(process.env.NODE_ENV === "development" && { stack: err.stack }),
   });
 });
 
 // ============================================
-// START SERVER
+// START SERVER + GRACEFUL SHUTDOWN
 // ============================================
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-  console.log(`🚀 Server running in ${process.env.NODE_ENV} mode on port ${PORT}`);
+const server = app.listen(PORT, () => {
+  logger.info(`Server running in ${process.env.NODE_ENV} mode on port ${PORT}`);
 });
+
+const gracefulShutdown = (signal) => {
+  logger.info(`${signal} received. Shutting down gracefully...`);
+  server.close(() => {
+    logger.info("HTTP server closed.");
+    mongoose.connection.close(false).then(() => {
+      logger.info("MongoDB connection closed.");
+      process.exit(0);
+    });
+  });
+  // Force exit after 10 seconds
+  setTimeout(() => {
+    logger.error("Forced shutdown after timeout.");
+    process.exit(1);
+  }, 10000);
+};
+
+process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
+process.on("SIGINT", () => gracefulShutdown("SIGINT"));
